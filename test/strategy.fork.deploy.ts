@@ -1,17 +1,16 @@
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
-import { deploy, fp, getSigner, impersonateWhale, instanceAt } from '@mimic-fi/v1-helpers'
+import { deploy, fp, getSigner, instanceAt } from '@mimic-fi/v1-helpers'
 
-describe('CompoundStrategy', function () {
-  let owner: SignerWithAddress, whale: SignerWithAddress, vault: Contract, strategy: Contract, dai: Contract, cdai: Contract
+describe('CompoundStrategy - Deploy', function () {
+  let owner: SignerWithAddress, vault: Contract, strategy: Contract, dai: Contract, cdai: Contract
 
   const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
   const CDAI = '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
 
   before('load signers', async () => {
     owner = await getSigner()
-    whale = await impersonateWhale(fp(100))
   })
 
   before('deploy vault', async () => {

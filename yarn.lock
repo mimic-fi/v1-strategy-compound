@@ -552,10 +552,10 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-1.2.0.tgz#87de7af9c231826fdd68ac7258f77c429e0e5fcf"
   integrity sha512-wdppn25U8z/2yiaT6YGquE6X8sSv7hNMWSXYSSU1jGv/yd6XqjXgTDJ8KP4NgjTXfJ3GbRjeeb8RTV7a/VpM+w==
 
-"@mimic-fi/v1-core@^0.0.2":
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v1-core/-/v1-core-0.0.2.tgz#029bf8df77fd6ad589bf69fa410175c56d5046a4"
-  integrity sha512-3V1b6u0IZuDdICtz05uZ9/xjo0xnVPu/SZNZfhy1GrFE6lFZLzEYe4Il2bJ7sQtynOOinWGn76ZLRWseXqhQSw==
+"@mimic-fi/v1-core@^0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v1-core/-/v1-core-0.0.3.tgz#198c786f1086bfc64910599895708a5f6bb02d4d"
+  integrity sha512-3Y5NrMP8S3IU8a25agU7tETLlll3CIvlePT57Nm9sqNaorgiuD/9UHtyYSpTU4DkloeAD+l0Ov3IgJ+8NfRn+A==
   dependencies:
     "@openzeppelin/contracts" "^4.1.0"
 

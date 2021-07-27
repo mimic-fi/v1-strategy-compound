@@ -71,7 +71,11 @@ contract CompoundStrategy is IStrategy {
     function onExit(uint256 shares, bytes memory) external override returns (address, uint256) {
         uint256 initialTokenAmount = token.balanceOf(address(this));
         uint256 initialCTokenAmount = ctoken.balanceOf(address(this));
-        uint256 ctokenAmount = shares.mul(initialCTokenAmount).divDown(_totalShares);
+        
+        //TODO: too much garbage, why?
+        //uint256 ctokenAmount = shares.mul(initialCTokenAmount).divDown(_totalShares);
+        uint256 ctokenAmount = shares * initialCTokenAmount / _totalShares;
+
         require(ctoken.redeem(ctokenAmount) == 0, "COMPOUND_REDEEM_FAILED");
 
         uint256 finalTokenAmount = token.balanceOf(address(this));
@@ -81,8 +85,12 @@ contract CompoundStrategy is IStrategy {
     }
 
     function approveVault(IERC20 _token) external {
-        if (address(_token) != address(ctoken)) {
-            _token.approve(vault, FixedPoint.MAX_UINT256);
-        }
+        require(address(_token) != address(ctoken), "COMPOUND_INTERNAL_TOKEN");
+        _token.approve(vault, FixedPoint.MAX_UINT256);
+    }
+
+    function investAll() external {
+        uint256 tokenBalance = token.balanceOf(address(this));
+        require(ctoken.mint(tokenBalance) == 0, "COMPOUND_MINT_FAILED");
     }
 }
