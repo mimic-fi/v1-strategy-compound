@@ -17,6 +17,7 @@ pragma solidity ^0.8.0;
 import "@mimic-fi/v1-core/contracts/interfaces/IStrategy.sol";
 import "@mimic-fi/v1-core/contracts/helpers/FixedPoint.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./ICToken.sol";
 
@@ -63,7 +64,9 @@ contract CompoundStrategy is IStrategy {
         require(ctoken.mint(amount) == 0, "COMPOUND_MINT_FAILED");
         uint256 finalCTokenAmount = ctoken.balanceOf(address(this));
 
-        uint256 shares = finalCTokenAmount.sub(initialCTokenAmount);
+        //TODO: check with Facu
+        uint256 rate = _totalShares == 0? FixedPoint.ONE: _totalShares.div(finalCTokenAmount);
+        uint256 shares = finalCTokenAmount.sub(initialCTokenAmount).mul(rate);
         _totalShares = _totalShares.add(shares);
         return shares;
     }
@@ -74,7 +77,7 @@ contract CompoundStrategy is IStrategy {
         
         //TODO: too much garbage, why?
         //uint256 ctokenAmount = shares.mul(initialCTokenAmount).divDown(_totalShares);
-        uint256 ctokenAmount = shares * initialCTokenAmount / _totalShares;
+        uint256 ctokenAmount = SafeMath.div(SafeMath.mul(shares, initialCTokenAmount), _totalShares);
 
         require(ctoken.redeem(ctokenAmount) == 0, "COMPOUND_REDEEM_FAILED");
 
