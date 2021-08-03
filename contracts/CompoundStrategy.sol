@@ -31,6 +31,11 @@ contract CompoundStrategy is IStrategy {
     uint256 private _totalShares;
     string private _metadataURI;
 
+    modifier onlyVault() {
+        require(vault == msg.sender, "CALLER_IS_NOT_VAULT");
+        _;
+    }
+
     constructor(address _vault, IERC20 _token, ICToken _ctoken, string memory _metadata) {
         token = _token;
         ctoken = _ctoken;
@@ -59,7 +64,7 @@ contract CompoundStrategy is IStrategy {
         return _totalShares;
     }
 
-    function onJoin(uint256 amount, bytes memory) external override returns (uint256) {
+    function onJoin(uint256 amount, bytes memory) external override  onlyVault returns (uint256) {
         uint256 initialCTokenAmount = ctoken.balanceOf(address(this));
         require(ctoken.mint(amount) == 0, "COMPOUND_MINT_FAILED");
         uint256 finalCTokenAmount = ctoken.balanceOf(address(this));
@@ -71,7 +76,7 @@ contract CompoundStrategy is IStrategy {
         return shares;
     }
 
-    function onExit(uint256 shares, bytes memory) external override returns (address, uint256) {
+    function onExit(uint256 shares, bytes memory) external override onlyVault returns (address, uint256) {
         uint256 initialTokenAmount = token.balanceOf(address(this));
         uint256 initialCTokenAmount = ctoken.balanceOf(address(this));
         
