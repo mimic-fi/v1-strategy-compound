@@ -1,35 +1,39 @@
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
-import { deploy, fp, bn, getSigner, impersonateWhale, instanceAt } from '@mimic-fi/v1-helpers'
+import { deploy, fp, bn, impersonateWhale, instanceAt } from '@mimic-fi/v1-helpers'
 import { incrementBlock } from './helpers/network'
 
 describe('CompoundStrategy - Join', function () {
-  let owner: SignerWithAddress, whale: SignerWithAddress, vault: Contract, strategy: Contract, dai: Contract, cdai: Contract, comp: Contract
+  let whale: SignerWithAddress, vault: Contract, strategy: Contract, dai: Contract, cdai: Contract, comp: Contract, usdc: Contract
 
   const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
   const CDAI = '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
   const COMP = '0xc00e94cb662c3520282e6f5717214004a7f26888'
+  const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+  const UNISWAP_V2_ROUTER_ADDRESS = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 
   const MAX_UINT_256 = bn(2).pow(256).sub(1)
   const MAX_UINT_96 = bn(2).pow(96).sub(1)
 
   before('load signers', async () => {
-    owner = await getSigner()
     whale = await impersonateWhale(fp(100))
   })
 
   before('deploy vault', async () => {
     const protocolFee = fp(0.00003)
-    const swapConnector = owner.address // random address
     const whitelistedStrategies: string[] = []
-    vault = await deploy('Vault', [protocolFee, swapConnector, whitelistedStrategies])
+
+    const swapConnector = await deploy('UniswapConnector', [UNISWAP_V2_ROUTER_ADDRESS])
+
+    vault = await deploy('Vault', [protocolFee, swapConnector.address, whitelistedStrategies])
   })
 
   before('load tokens', async () => {
     dai = await instanceAt('IERC20', DAI)
     cdai = await instanceAt('ICToken', CDAI)
     comp = await instanceAt('IERC20', COMP)
+    usdc = await instanceAt('IERC20', USDC)
   })
 
   before('deposit to Vault', async () => {
@@ -122,38 +126,72 @@ describe('CompoundStrategy - Join', function () {
   })
 
   it('handle DAI airdrops', async () => {
-    await vault.connect(whale).join(whale.address, strategy.address, fp(50), '0x')
-
-    //airdrop 1
+    //airdrop 1000
     dai.connect(whale).transfer(strategy.address, fp(1000))
 
     //total shares = cdai
-    let cdaiBalance = await cdai.balanceOf(strategy.address)
-    let totalShares = await strategy.getTotalShares()
-    expect(totalShares).to.be.equal(cdaiBalance)
+    const initialCdaiBalance = await cdai.balanceOf(strategy.address)
+    const initialShares = await strategy.getTotalShares()
 
-    await vault.connect(whale).exit(whale.address, strategy.address, fp(0.5), '0x')
-
-    //dai not affected
-    let currentStrategyBalance = await dai.balanceOf(strategy.address)
-    expect(currentStrategyBalance).to.be.equal(fp(1000))
-
-    await vault.connect(whale).exit(whale.address, strategy.address, fp(1), '0x')
+    expect(initialShares).to.be.equal(initialCdaiBalance)
 
     //invest aidrop
-    await strategy.investAll()
+    await strategy.investAllDAI()
 
-    //total shares < cdai
-    cdaiBalance = await cdai.balanceOf(strategy.address)
-    totalShares = await strategy.getTotalShares()
-    expect(totalShares.lt(cdaiBalance)).to.be.true
+    //total shares < bpt
+    const finalCdaiBalance = await cdai.balanceOf(strategy.address)
+    const finalShares = await strategy.getTotalShares()
 
-    //dai sent to whale
-    currentStrategyBalance = await dai.balanceOf(strategy.address)
-    expect(currentStrategyBalance).to.be.equal(0)
+    expect(initialCdaiBalance.lt(finalCdaiBalance)).to.be.true
+    expect(initialShares).to.be.equal(finalShares)
+  })
 
-    //total shares = 0
-    totalShares = await strategy.getTotalShares()
-    expect(totalShares).to.be.equal(0)
+  it('handle USDC airdrops', async () => {
+    //airdrop 1000
+    usdc.connect(whale).transfer(strategy.address, fp(1000).div(bn('1e12')))
+
+    const daiBalance = await dai.balanceOf(strategy.address)
+    expect(daiBalance).to.be.equal(0)
+
+    const initialCdaiBalance = await cdai.balanceOf(strategy.address)
+    const initialShares = await strategy.getTotalShares()
+
+    //invest aidrop
+    await strategy.tradeAndInvest(usdc.address)
+
+    const finalCdaiBalance = await cdai.balanceOf(strategy.address)
+    const finalShares = await strategy.getTotalShares()
+
+    expect(initialCdaiBalance.lt(finalCdaiBalance)).to.be.true
+    expect(initialShares).to.be.equal(finalShares)
+  })
+
+  it('handle USDC airdrops + Join', async () => {
+    //Make it so there are some previous shares
+    await vault.connect(whale).join(whale.address, strategy.address, fp(50), '0x')
+
+    const aidrop = fp(100000)
+    const joinAmount = fp(50)
+
+    //airdrop 1000
+    usdc.connect(whale).transfer(strategy.address, aidrop.div(bn('1e12')))
+
+    const daiBalance = await dai.balanceOf(strategy.address)
+    expect(daiBalance).to.be.equal(0)
+
+    const initialShares = await strategy.getTotalShares()
+
+    //whale joins
+    await vault.connect(whale).join(whale.address, strategy.address, joinAmount, '0x')
+
+    //Final token balance includes 100k airdrop + joinAmount
+    const finalTokenBalance = await strategy.getTokenBalance()
+    const finalShares = await strategy.getTotalShares()
+
+    const whaleSharesExpected = joinAmount.mul(initialShares).div(finalTokenBalance)
+    const whaleSharesObtained = finalShares.sub(initialShares)
+
+    //shares obtained by the whale should be close to how much dai it addd and not the airdropped one
+    expect(whaleSharesExpected.sub(whaleSharesObtained).abs().lt(fp(0.0001))).to.be.true
   })
 })
