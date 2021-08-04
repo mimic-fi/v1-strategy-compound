@@ -101,4 +101,12 @@ contract CompoundStrategy is IStrategy {
         uint256 tokenBalance = token.balanceOf(address(this));
         require(ctoken.mint(tokenBalance) == 0, "COMPOUND_MINT_FAILED");
     }
+
+    function tradeForDAI(IERC20 _token) external {
+        require(address(_token) != address(ctoken), "BALANCER_INTERNAL_TOKEN");
+        require(address(_token) != address(token), "BALANCER_INTERNAL_TOKEN");
+        //TODO any other?
+
+        //swap connector (slipage protection)
+    }
 }
