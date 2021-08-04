@@ -58,8 +58,8 @@ contract CompoundStrategy is IStrategy {
 
     function getTokenBalance() external view override returns (uint256) {
         // Not taking into account not invested balance
-        uint256 totalCDAI = ctoken.balanceOf(address(this));
-        return totalCDAI.mul(ctoken.exchangeRateStored());
+        uint256 totalCToken = ctoken.balanceOf(address(this));
+        return totalCToken.mul(ctoken.exchangeRateStored());
     }
 
     function getTotalShares() external view override returns (uint256) {
@@ -70,7 +70,7 @@ contract CompoundStrategy is IStrategy {
         uint256 initialTokenBalance = token.balanceOf(address(this));
         uint256 initialCTokenAmount = ctoken.balanceOf(address(this));
 
-        investAllDAI();
+        investAll();
 
         uint256 finalCTokenAmount = ctoken.balanceOf(address(this));
         uint256 callerBPTAmount = amount.mul(finalCTokenAmount.sub(initialCTokenAmount)).div(initialTokenBalance);
@@ -82,7 +82,7 @@ contract CompoundStrategy is IStrategy {
     }
 
     function onExit(uint256 shares, bytes memory) external override onlyVault returns (address, uint256) {
-        investAllDAI();
+        investAll();
 
         uint256 initialTokenAmount = token.balanceOf(address(this));
         uint256 initialCTokenAmount = ctoken.balanceOf(address(this));
@@ -104,7 +104,7 @@ contract CompoundStrategy is IStrategy {
         _token.approve(address(vault), FixedPoint.MAX_UINT256);
     }
 
-    function tradeForDAI(IERC20 _tokenIn) public {
+    function tradeForToken(IERC20 _tokenIn) public {
         require(address(_tokenIn) != address(ctoken), "COMPOUND_INTERNAL_TOKEN");
         require(address(_tokenIn) != address(token), "COMPOUND_INTERNAL_TOKEN");
 
@@ -128,22 +128,22 @@ contract CompoundStrategy is IStrategy {
         }
     }
 
-    function investAllDAI() public {
+    function investAll() public {
         uint256 tokenBalance = token.balanceOf(address(this));
         if(tokenBalance > 0) {
-            _investDAI(tokenBalance);
+            _invest(tokenBalance);
         }
     }
 
     function tradeAndInvest(IERC20 _token) public {
-        tradeForDAI(_token);
-        investAllDAI();
+        tradeForToken(_token);
+        investAll();
     }
 
 
     //Internal
 
-    function _investDAI(uint256 amount) internal {
+    function _invest(uint256 amount) internal {
         require(ctoken.mint(amount) == 0, "COMPOUND_MINT_FAILED");
     }
 }

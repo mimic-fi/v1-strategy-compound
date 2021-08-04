@@ -136,7 +136,7 @@ describe('CompoundStrategy - Join', function () {
     expect(initialShares).to.be.equal(initialCdaiBalance)
 
     //invest aidrop
-    await strategy.investAllDAI()
+    await strategy.investAll()
 
     //total shares < bpt
     const finalCdaiBalance = await cdai.balanceOf(strategy.address)
