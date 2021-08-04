@@ -21,10 +21,6 @@ import "@mimic-fi/v1-core/contracts/helpers/FixedPoint.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-
-//TODO: how to compile this
-import "@mimic-fi/v1-core/contracts/vault/UniswapConnector.sol";
-
 import "./ICToken.sol";
 
 contract CompoundStrategy is IStrategy {
