@@ -73,10 +73,10 @@ contract CompoundStrategy is IStrategy {
         investAll();
 
         uint256 finalCTokenAmount = ctoken.balanceOf(address(this));
-        uint256 callerBPTAmount = amount.mul(finalCTokenAmount.sub(initialCTokenAmount)).div(initialTokenBalance);
+        uint256 callerCTokenAmount = amount.mul(finalCTokenAmount.sub(initialCTokenAmount)).div(initialTokenBalance);
 
         uint256 rate = _totalShares == 0? FixedPoint.ONE: _totalShares.div(finalCTokenAmount);
-        uint256 shares = callerBPTAmount.mul(rate);
+        uint256 shares = callerCTokenAmount.mul(rate);
         _totalShares = _totalShares.add(shares);
         return shares;
     }
