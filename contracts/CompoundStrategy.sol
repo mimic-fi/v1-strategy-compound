@@ -16,40 +16,59 @@ pragma solidity ^0.8.0;
 
 import "@mimic-fi/v1-core/contracts/interfaces/IStrategy.sol";
 import "@mimic-fi/v1-core/contracts/interfaces/ISwapConnector.sol";
+import "@mimic-fi/v1-core/contracts/interfaces/IPriceOracle.sol";
 import "@mimic-fi/v1-core/contracts/interfaces/IVault.sol";
-import "@mimic-fi/v1-core/contracts/helpers/FixedPoint.sol";
+import "@mimic-fi/v1-core/contracts/libraries/FixedPoint.sol";
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./ICToken.sol";
 
 contract CompoundStrategy is IStrategy {
-    using FixedPoint for uint256;
+    using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
-    IVault public immutable vault;
-    IERC20 public immutable token;
-    ICToken public immutable ctoken;
+    uint256 private constant _SLIPPAGE = 1e16; // 1%
+
+    IVault private immutable _vault;
+    IERC20 private immutable _token;
+    ICToken private immutable _ctoken;
 
     uint256 private _totalShares;
     string private _metadataURI;
 
     modifier onlyVault() {
-        require(address(vault) == msg.sender, "CALLER_IS_NOT_VAULT");
+        require(address(_vault) == msg.sender, "CALLER_IS_NOT_VAULT");
         _;
     }
 
-    constructor(IVault _vault, IERC20 _token, ICToken _ctoken, string memory _metadata) {
-        token = _token;
-        ctoken = _ctoken;
-        vault = _vault;
-        _metadataURI = _metadata;
+    constructor(
+        IVault vault,
+        IERC20 token,
+        ICToken ctoken,
+        string memory metadata
+    ) {
+        _token = token;
+        _ctoken = ctoken;
+        _vault = vault;
+        _metadataURI = metadata;
 
-        _token.approve(address(_vault), FixedPoint.MAX_UINT256);
-        _token.approve(address(_ctoken), FixedPoint.MAX_UINT256);
+        token.approve(address(vault), FixedPoint.MAX_UINT256);
+        token.approve(address(ctoken), FixedPoint.MAX_UINT256);
+    }
+
+    function getVault() external view returns (address) {
+        return address(_vault);
     }
 
     function getToken() external view override returns (address) {
-        return address(token);
+        return address(_token);
+    }
+
+    function getCToken() external view returns (address) {
+        return address(_ctoken);
     }
 
     function getMetadataURI() external view override returns (string memory) {
@@ -58,92 +77,155 @@ contract CompoundStrategy is IStrategy {
 
     function getTokenBalance() external view override returns (uint256) {
         // Not taking into account not invested balance
-        uint256 totalCToken = ctoken.balanceOf(address(this));
-        return totalCToken.mul(ctoken.exchangeRateStored());
+        uint256 totalCToken = _ctoken.balanceOf(address(this));
+        return FixedPoint.mul(totalCToken, _ctoken.exchangeRateStored());
     }
 
     function getTotalShares() external view override returns (uint256) {
         return _totalShares;
     }
 
-    function onJoin(uint256 amount, bytes memory) external override  onlyVault returns (uint256) {
-        uint256 initialTokenBalance = token.balanceOf(address(this));
-        uint256 initialCTokenAmount = ctoken.balanceOf(address(this));
+    function onJoin(uint256 amount, bytes memory)
+        external
+        override
+        onlyVault
+        returns (uint256)
+    {
+        uint256 initialTokenBalance = _token.balanceOf(address(this));
+        uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
 
-        investAll();
+        invest(_token);
 
-        uint256 finalCTokenAmount = ctoken.balanceOf(address(this));
-        uint256 callerCTokenAmount = amount.mul(finalCTokenAmount.sub(initialCTokenAmount)).div(initialTokenBalance);
+        uint256 finalCTokenBalance = _ctoken.balanceOf(address(this));
 
-        uint256 rate = _totalShares == 0? FixedPoint.ONE: _totalShares.div(finalCTokenAmount);
-        uint256 shares = callerCTokenAmount.mul(rate);
+        uint256 callerCTokenAmount = amount
+        .mul(finalCTokenBalance.sub(initialCTokenBalance))
+        .div(initialTokenBalance);
+
+        uint256 shares = _totalShares == 0
+            ? callerCTokenAmount
+            : _totalShares.mul(callerCTokenAmount).div(
+                finalCTokenBalance.sub(callerCTokenAmount)
+            );
+
         _totalShares = _totalShares.add(shares);
+
         return shares;
     }
 
-    function onExit(uint256 shares, bytes memory) external override onlyVault returns (address, uint256) {
-        investAll();
+    function onExit(uint256 shares, bytes memory)
+        external
+        override
+        onlyVault
+        returns (address, uint256)
+    {
+        invest(_token);
 
-        uint256 initialTokenAmount = token.balanceOf(address(this));
-        uint256 initialCTokenAmount = ctoken.balanceOf(address(this));
-        
-        //TODO: too much garbage, why?
-        //uint256 ctokenAmount = shares.mul(initialCTokenAmount).divDown(_totalShares);
-        uint256 ctokenAmount = SafeMath.div(SafeMath.mul(shares, initialCTokenAmount), _totalShares);
+        //initialTokenBalance should be awlays zero after investing, but just in case it check
+        uint256 initialTokenBalance = _token.balanceOf(address(this));
+        uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
 
-        require(ctoken.redeem(ctokenAmount) == 0, "COMPOUND_REDEEM_FAILED");
+        uint256 ctokenAmount = shares.mul(initialCTokenBalance).div(
+            _totalShares
+        );
 
-        uint256 finalTokenAmount = token.balanceOf(address(this));
-        uint256 amount = finalTokenAmount.sub(initialTokenAmount);
+        require(_ctoken.redeem(ctokenAmount) == 0, "COMPOUND_REDEEM_FAILED");
+
+        uint256 finalTokenBalance = _token.balanceOf(address(this));
+        uint256 tokenAmount = finalTokenBalance.sub(initialTokenBalance);
+
         _totalShares = _totalShares.sub(shares);
-        return (address(token), amount);
+
+        return (address(_token), tokenAmount);
     }
 
-    function approveVault(IERC20 _token) external {
-        require(address(_token) != address(ctoken), "COMPOUND_INTERNAL_TOKEN");
-        _token.approve(address(vault), FixedPoint.MAX_UINT256);
+    function approveVault(IERC20 token) external {
+        require(address(token) != address(_ctoken), "COMPOUND_INTERNAL_TOKEN");
+        token.approve(address(_vault), FixedPoint.MAX_UINT256);
     }
 
-    function tradeForToken(IERC20 _tokenIn) public {
-        require(address(_tokenIn) != address(ctoken), "COMPOUND_INTERNAL_TOKEN");
-        require(address(_tokenIn) != address(token), "COMPOUND_INTERNAL_TOKEN");
+    function invest(IERC20 token) public {
+        require(address(token) != address(_ctoken), "COMPOUND_INTERNAL_TOKEN");
 
-        uint256 tokenInBalance = _tokenIn.balanceOf(address(this));
-
-        if(tokenInBalance > 0) {
-            uint256 deadline = block.timestamp + 5 minutes; //TODO, also optional
-
-            address swapConnector = vault.swapConnector();
-            
-            _tokenIn.transfer(swapConnector, tokenInBalance);
-
-            ISwapConnector(swapConnector).swap(
-                address(_tokenIn),
-                address(token),
-                tokenInBalance,
-                0, //TODO: should be check by connector using oracle
-                deadline,
-                ""
-            );
-        }
-    }
-
-    function investAll() public {
         uint256 tokenBalance = token.balanceOf(address(this));
-        if(tokenBalance > 0) {
-            _invest(tokenBalance);
+
+        if (token != _token) {
+            _swap(token, _token, tokenBalance);
+            tokenBalance = _token.balanceOf(address(this));
         }
-    }
 
-    function tradeAndInvest(IERC20 _token) public {
-        tradeForToken(_token);
-        investAll();
+        require(_ctoken.mint(tokenBalance) == 0, "COMPOUND_MINT_FAILED");
     }
-
 
     //Internal
 
-    function _invest(uint256 amount) internal {
-        require(ctoken.mint(amount) == 0, "COMPOUND_MINT_FAILED");
+    function _swap(
+        IERC20 tokenIn,
+        IERC20 tokenOut,
+        uint256 amountIn
+    ) private returns (uint256) {
+        require(tokenIn != tokenOut, "SWAP_SAME_TOKEN");
+
+        address priceOracle = _vault.priceOracle();
+        address swapConnector = _vault.swapConnector();
+
+        uint256 price = IPriceOracle(priceOracle).getTokenPrice(
+            address(tokenOut),
+            address(tokenIn)
+        );
+
+        uint256 minAmountOut = FixedPoint.mulUp(
+            FixedPoint.mulUp(amountIn, price),
+            FixedPoint.ONE - _SLIPPAGE
+        );
+
+        require(
+            ISwapConnector(swapConnector).getAmountOut(
+                address(tokenIn),
+                address(tokenOut),
+                amountIn
+            ) >= minAmountOut,
+            "EXPECTED_SWAP_MIN_AMOUNT"
+        );
+
+        _safeTransfer(tokenIn, swapConnector, amountIn);
+
+        uint256 preBalanceIn = tokenIn.balanceOf(address(this));
+        uint256 preBalanceOut = tokenOut.balanceOf(address(this));
+        (uint256 remainingIn, uint256 amountOut) = ISwapConnector(swapConnector)
+        .swap(
+            address(tokenIn),
+            address(tokenOut),
+            amountIn,
+            minAmountOut,
+            block.timestamp,
+            ""
+        );
+
+        require(amountOut >= minAmountOut, "SWAP_MIN_AMOUNT");
+
+        uint256 postBalanceIn = tokenIn.balanceOf(address(this));
+        // require(
+        //     postBalanceIn.sub(preBalanceIn) >= remainingIn,
+        //     "SWAP_INVALID_REMAINING_IN"
+        // );
+
+        uint256 postBalanceOut = tokenOut.balanceOf(address(this));
+        require(
+            postBalanceOut.sub(preBalanceOut) >= amountOut,
+            "SWAP_INVALID_AMOUNT_OUT"
+        );
+
+        return amountOut;
+    }
+
+    function _safeTransfer(
+        IERC20 token,
+        address to,
+        uint256 amount
+    ) private {
+        if (amount > 0) {
+            token.safeTransfer(to, amount);
+        }
     }
 }

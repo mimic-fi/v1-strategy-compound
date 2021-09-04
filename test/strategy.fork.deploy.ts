@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
-import { deploy, fp, getSigner, instanceAt } from '@mimic-fi/v1-helpers'
+import { deploy, fp, getSigner, impersonate, instanceAt } from '@mimic-fi/v1-helpers'
 
 describe('CompoundStrategy - Deploy', function () {
   let owner: SignerWithAddress, vault: Contract, strategy: Contract, dai: Contract, cdai: Contract
@@ -11,13 +11,23 @@ describe('CompoundStrategy - Deploy', function () {
 
   before('load signers', async () => {
     owner = await getSigner()
+    owner = await impersonate(owner.address, fp(100))
   })
 
   before('deploy vault', async () => {
     const protocolFee = fp(0.00003)
+    const priceOracle = owner.address // random address
     const swapConnector = owner.address // random address
+    const whitelistedTokens: string[] = []
     const whitelistedStrategies: string[] = []
-    vault = await deploy('Vault', [protocolFee, swapConnector, whitelistedStrategies])
+
+    vault = await deploy('@mimic-fi/v1-core/artifacts/contracts/vault/Vault.sol/Vault', [
+      protocolFee,
+      priceOracle,
+      swapConnector,
+      whitelistedTokens,
+      whitelistedStrategies,
+    ])
   })
 
   before('load tokens', async () => {
@@ -28,11 +38,9 @@ describe('CompoundStrategy - Deploy', function () {
   it('deploy strategy', async () => {
     strategy = await deploy('CompoundStrategy', [vault.address, dai.address, cdai.address, 'metadata:uri'])
 
-    expect(await strategy.vault()).to.be.equal(vault.address)
-    expect(await strategy.token()).to.be.equal(dai.address)
-    expect(await strategy.ctoken()).to.be.equal(cdai.address)
-
+    expect(await strategy.getVault()).to.be.equal(vault.address)
     expect(await strategy.getToken()).to.be.equal(dai.address)
+    expect(await strategy.getCToken()).to.be.equal(cdai.address)
     expect(await strategy.getMetadataURI()).to.be.equal('metadata:uri')
 
     expect(await strategy.getTotalShares()).to.be.equal(0)
