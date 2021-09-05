@@ -94,6 +94,7 @@ contract CompoundStrategy is IStrategy {
         uint256 initialTokenBalance = _token.balanceOf(address(this));
         uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
 
+        claim();
         invest(_token);
 
         uint256 finalCTokenBalance = _ctoken.balanceOf(address(this));
@@ -119,6 +120,7 @@ contract CompoundStrategy is IStrategy {
         onlyVault
         returns (address, uint256)
     {
+        claim();
         invest(_token);
 
         //initialTokenBalance should be awlays zero after investing, but just in case it check
@@ -141,6 +143,7 @@ contract CompoundStrategy is IStrategy {
 
     function approveVault(IERC20 token) external {
         require(address(token) != address(_ctoken), "COMPOUND_INTERNAL_TOKEN");
+
         token.approve(address(_vault), FixedPoint.MAX_UINT256);
     }
 
@@ -157,7 +160,12 @@ contract CompoundStrategy is IStrategy {
         require(_ctoken.mint(tokenBalance) == 0, "COMPOUND_MINT_FAILED");
     }
 
-    //Internal
+    function claim() public {
+        //TODO: claim COMP
+        //swap COMP for token
+    }
+
+    //Private
 
     function _swap(
         IERC20 tokenIn,
