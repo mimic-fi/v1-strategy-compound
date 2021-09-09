@@ -14,8 +14,7 @@
 
 pragma solidity ^0.8.0;
 
-import "@mimic-fi/v1-vault/contracts/Vault.sol";
-import "@mimic-fi/v1-uniswap-connector/contracts/UniswapConnector.sol";
-import "@mimic-fi/v1-chainlink-price-oracle/contracts/ChainLinkPriceOracle.sol";
-
-contract Imports {}
+interface Comptroller {
+    // Claim all the COMP accrued by holder in all markets
+    function claimComp(address holder) external;
+}
