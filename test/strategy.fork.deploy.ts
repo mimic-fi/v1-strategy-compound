@@ -1,11 +1,12 @@
+import { deploy, fp, getSigner, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v1-helpers'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
-import { deploy, fp, getSigner, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v1-helpers'
 
 describe('CompoundStrategy - Deploy', function () {
   let owner: SignerWithAddress, vault: Contract, strategy: Contract, dai: Contract, cdai: Contract, comp: Contract
 
+  // eslint-disable-next-line no-secrets/no-secrets
   const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
   const CDAI = '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
   const COMP = '0xc00e94cb662c3520282e6f5717214004a7f26888'
