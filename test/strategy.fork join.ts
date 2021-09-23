@@ -1,7 +1,8 @@
+import { bn, deploy, fp, getSigner, impersonate, impersonateWhale, instanceAt } from '@mimic-fi/v1-helpers'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
-import { deploy, fp, bn, getSigner, impersonate, impersonateWhale, instanceAt } from '@mimic-fi/v1-helpers'
+
 import { incrementBlock } from './helpers/network'
 
 describe('CompoundStrategy - Join', function () {
@@ -15,18 +16,24 @@ describe('CompoundStrategy - Join', function () {
     comp: Contract,
     usdc: Contract
 
+  // eslint-disable-next-line no-secrets/no-secrets
   const WHALE_WITH_DAI_AND_WETH = '0x5E9F736f314C9108aC72D4CfEd4Bcc09c01309a6'
 
+  // eslint-disable-next-line no-secrets/no-secrets
   const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
   const CDAI = '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
   const COMP = '0xc00e94cb662c3520282e6f5717214004a7f26888'
   const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 
+  // eslint-disable-next-line no-secrets/no-secrets
   const COMPTROLLER = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B'
 
+  // eslint-disable-next-line no-secrets/no-secrets
   const UNISWAP_V2_ROUTER_ADDRESS = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 
+  // eslint-disable-next-line no-secrets/no-secrets
   const CHAINLINK_ORACLE_DAI_ETH = '0x773616E4d11A78F511299002da57A0a94577F1f4'
+  // eslint-disable-next-line no-secrets/no-secrets
   const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
   const CHAINLINK_ORACLE_COMP_ETH = '0x1B39Ee86Ec5979ba5C322b826B3ECb8C79991699'
 
