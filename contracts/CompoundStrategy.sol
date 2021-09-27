@@ -100,9 +100,6 @@ contract CompoundStrategy is IStrategy {
     }
 
     function onJoin(uint256 amount, bytes memory) external override onlyVault returns (uint256) {
-        //Claim comp into token
-        claim();
-
         uint256 initialTokenBalance = _token.balanceOf(address(this));
         uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
 
@@ -123,7 +120,6 @@ contract CompoundStrategy is IStrategy {
     }
 
     function onExit(uint256 shares, bool, bytes memory) external override onlyVault returns (address, uint256) {
-        claim();
         invest(_token);
 
         //initialTokenBalance should be awlays zero after investing, but just in case it check
@@ -165,12 +161,6 @@ contract CompoundStrategy is IStrategy {
 
     function claim() public {
         _comptroller.claimComp(address(this));
-
-        uint256 tokenBalance = _comp.balanceOf(address(this));
-
-        if (tokenBalance > 0) {
-            _swap(_comp, _token, tokenBalance);
-        }
     }
 
     //Private
