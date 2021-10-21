@@ -17,6 +17,7 @@ describe('CompoundStrategy - Deploy', function () {
   })
 
   before('deploy vault', async () => {
+    const maxSlippage = fp(0.02)
     const protocolFee = fp(0.00003)
     const priceOracle = owner.address // random address
     const swapConnector = owner.address // random address
@@ -24,6 +25,7 @@ describe('CompoundStrategy - Deploy', function () {
     const whitelistedStrategies: string[] = []
 
     vault = await deploy('@mimic-fi/v1-vault/artifacts/contracts/Vault.sol/Vault', [
+      maxSlippage,
       protocolFee,
       priceOracle,
       swapConnector,
@@ -56,6 +58,6 @@ describe('CompoundStrategy - Deploy', function () {
     expect(await strategy.getMetadataURI()).to.be.equal('metadata:uri')
 
     expect(await strategy.getTotalShares()).to.be.equal(0)
-    expect(await strategy.getTokenBalance()).to.be.equal(0)
+    expect(await strategy.getRate()).to.be.equal(0)
   })
 })

@@ -90,6 +90,10 @@ contract CompoundStrategy is IStrategy {
     }
 
     function getRate() external view override returns (uint256) {
+        if(_totalShares == 0) {
+            return 0;
+        }
+        
         // Not taking into account not invested balance
         uint256 totalCToken = _ctoken.balanceOf(address(this));
         return totalCToken.mul(_ctoken.exchangeRateStored()).div(_totalShares);

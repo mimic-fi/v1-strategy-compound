@@ -47,6 +47,7 @@ describe('CompoundStrategy - Join', function () {
   })
 
   before('deploy vault', async () => {
+    const maxSlippage = fp(0.02)
     const protocolFee = fp(0.00003)
     const whitelistedTokens: string[] = []
     const whitelistedStrategies: string[] = []
@@ -58,6 +59,7 @@ describe('CompoundStrategy - Join', function () {
     const swapConnector = await deploy('UniswapConnector', [UNISWAP_V2_ROUTER_ADDRESS])
 
     vault = await deploy('@mimic-fi/v1-vault/artifacts/contracts/Vault.sol/Vault', [
+      maxSlippage,
       protocolFee,
       priceOracle.address,
       swapConnector.address,
@@ -121,16 +123,16 @@ describe('CompoundStrategy - Join', function () {
     expect(totalShares).to.be.equal(cdaiBalance)
   })
 
-  it('has strategy gains', async () => {
-    const initialBalance = await strategy.getTokenBalance()
+  it('rate increases', async () => {
+    const intialRate = await strategy.getRate()
 
     //Increments blocks
     await incrementBlock(400)
     //Force update of rate
     await cdai.connect(whale).exchangeRateCurrent()
 
-    const finalBalance = await strategy.getTokenBalance()
-    expect(finalBalance.gt(initialBalance)).to.be.true
+    const finalRate = await strategy.getRate()
+    expect(finalRate.gt(intialRate)).to.be.true
   })
 
   it('exit strategy', async () => {
