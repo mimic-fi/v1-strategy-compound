@@ -56,8 +56,6 @@ describe('CompoundStrategy - Deploy', function () {
     expect(await strategy.getToken()).to.be.equal(dai.address)
     expect(await strategy.getCToken()).to.be.equal(cdai.address)
     expect(await strategy.getMetadataURI()).to.be.equal('metadata:uri')
-
     expect(await strategy.getTotalShares()).to.be.equal(0)
-    expect(await strategy.getRate()).to.be.equal(0)
   })
 })

@@ -123,18 +123,6 @@ describe('CompoundStrategy - Join', function () {
     expect(totalShares).to.be.equal(cdaiBalance)
   })
 
-  it('rate increases', async () => {
-    const intialRate = await strategy.getRate()
-
-    //Increments blocks
-    await incrementBlock(400)
-    //Force update of rate
-    await cdai.connect(whale).exchangeRateCurrent()
-
-    const finalRate = await strategy.getRate()
-    expect(finalRate.gt(intialRate)).to.be.true
-  })
-
   it('exit strategy', async () => {
     const initialAmount = fp(50)
     const initialBalance = await vault.getAccountBalance(whale.address, dai.address)
