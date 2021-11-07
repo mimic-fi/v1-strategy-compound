@@ -3,8 +3,6 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { incrementBlock } from './helpers/network'
-
 describe('CompoundStrategy - Join', function () {
   let owner: SignerWithAddress,
     whale: SignerWithAddress,

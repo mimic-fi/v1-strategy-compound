@@ -91,7 +91,7 @@ contract CompoundStrategy is IStrategy {
 
     function getRate() external view override returns (uint256) {
         //TODO: remove function
-        return 0;   
+        return 0;
     }
 
     function getTotalShares() external view override returns (uint256) {
