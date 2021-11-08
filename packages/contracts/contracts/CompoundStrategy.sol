@@ -33,8 +33,6 @@ contract CompoundStrategy is IStrategy {
 
     uint256 private constant _MAX_SLIPPAGE = 1e18; // 100%
 
-    uint256 private constant _MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-
     IVault private immutable _vault;
     IERC20 private immutable _token;
     ICToken private immutable _ctoken;
@@ -68,9 +66,6 @@ contract CompoundStrategy is IStrategy {
         _vault = vault;
         _slippage = slippage;
         _metadataURI = metadata;
-
-        token.approve(address(vault), _MAX_UINT256);
-        token.approve(address(ctoken), _MAX_UINT256);
     }
 
     function getVault() external view returns (address) {
@@ -138,11 +133,6 @@ contract CompoundStrategy is IStrategy {
         return (address(_token), tokenAmount);
     }
 
-    function approveTokenSpenders() external {
-        _approveToken(address(_vault));
-        _approveToken(address(_ctoken));
-    }
-
     function invest(IERC20 token) public {
         require(address(token) != address(_ctoken), 'COMPOUND_INTERNAL_TOKEN');
 
@@ -201,17 +191,6 @@ contract CompoundStrategy is IStrategy {
         require(postBalanceOut >= preBalanceOut.add(amountOut), 'SWAP_INVALID_AMOUNT_OUT');
 
         return amountOut;
-    }
-
-    function _approveToken(address spender) private {
-        uint256 allowance = _token.allowance(address(this), spender);
-        if (allowance < _MAX_UINT256) {
-            if (allowance > 0) {
-                // Some tokens revert when changing non-zero approvals
-                _token.approve(spender, 0);
-            }
-            _token.approve(spender, _MAX_UINT256);
-        }
     }
 
     function _safeTransfer(IERC20 token, address to, uint256 amount) private {
