@@ -3,11 +3,11 @@
 # Exit script as soon as a command fails.
 set -o errexit
 
-# Strategy addresses
-strategy_localhost=0x646A336CD183dc947D3AdbEfb19c3cF637720318
-strategy_kovan=0x2533b011dDd4417F4D616339237Ce316388c70b0
-strategy_rinkeby=0x3683799B950B9680Fe9B5169e641e6DA5Fc751Ad
-strategy_mainnet=0x0000000000000000000000000000000000000001
+# Factory addresses
+factory_localhost=0x646A336CD183dc947D3AdbEfb19c3cF637720318
+factory_kovan=0x2533b011dDd4417F4D616339237Ce316388c70b0
+factory_rinkeby=0x3683799B950B9680Fe9B5169e641e6DA5Fc751Ad
+factory_mainnet=0x0000000000000000000000000000000000000001
 
 # Deployment block numbers
 start_block_kovan=27318406
@@ -37,15 +37,15 @@ if [[ -z $START_BLOCK ]]; then
   START_BLOCK=0
 fi
 
-# Try loading strategy address if missing
-if [[ -z $STRATEGY ]]; then
-  STRATEGY_VAR=strategy_$NETWORK
-  STRATEGY=${!STRATEGY_VAR}
+# Try loading factory address if missing
+if [[ -z $FACTORY ]]; then
+  FACTORY_VAR=factory_$NETWORK
+  FACTORY=${!FACTORY_VAR}
 fi
 
-# Validate strategy address
-if [[ -z $STRATEGY ]]; then
-  echo 'Please make sure a Strategy address is provided'
+# Validate factory address
+if [[ -z $FACTORY ]]; then
+  echo 'Please make sure a factory address is provided'
   exit 1
 fi
 
@@ -56,10 +56,10 @@ if [ -f subgraph.yaml ]; then
 fi
 
 # Build subgraph manifest for requested variables
-echo "Preparing new subgraph manifest for Strategy address ${STRATEGY} and network ${NETWORK}"
+echo "Preparing new subgraph manifest for factory address ${FACTORY} and network ${NETWORK}"
 cp subgraph.template.yaml subgraph.yaml
 sed -i -e "s/{{network}}/${ENV}/g" subgraph.yaml
-sed -i -e "s/{{strategy}}/${STRATEGY}/g" subgraph.yaml
+sed -i -e "s/{{factory}}/${FACTORY}/g" subgraph.yaml
 sed -i -e "s/{{startBlock}}/${START_BLOCK}/g" subgraph.yaml
 rm -f subgraph.yaml-e
 

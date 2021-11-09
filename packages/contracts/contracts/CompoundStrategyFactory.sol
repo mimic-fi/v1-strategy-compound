@@ -17,7 +17,7 @@ pragma solidity ^0.8.0;
 import './CompoundStrategy.sol';
 
 contract CompoundStrategyFactory {
-    event StrategyCreated(CompoundStrategy strategy);
+    event StrategyCreated(CompoundStrategy indexed strategy);
 
     IVault public vault;
 
