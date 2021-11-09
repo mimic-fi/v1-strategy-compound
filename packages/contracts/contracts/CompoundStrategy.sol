@@ -100,11 +100,6 @@ contract CompoundStrategy is IStrategy {
         return _totalShares;
     }
 
-    function getRate() external view override returns (uint256) {
-        //TODO: remove function
-        return 0;
-    }
-
     function onJoin(uint256 amount, bytes memory) external override onlyVault returns (uint256 shares) {
         uint256 initialTokenBalance = _token.balanceOf(address(this));
         uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
