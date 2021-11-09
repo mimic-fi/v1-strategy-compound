@@ -110,11 +110,12 @@ contract CompoundStrategy is IStrategy {
         uint256 cTokenAmount = finalCTokenBalance.sub(initialCTokenBalance);
         uint256 callerCTokenAmount = amount.mul(cTokenAmount).div(initialTokenBalance);
 
-        shares = _totalShares == 0
+        uint256 totalShares = _totalShares;
+        shares = totalShares == 0
             ? callerCTokenAmount
-            : _totalShares.mul(callerCTokenAmount).div(finalCTokenBalance.sub(callerCTokenAmount));
+            : totalShares.mul(callerCTokenAmount).div(finalCTokenBalance.sub(callerCTokenAmount));
 
-        _totalShares = _totalShares.add(shares);
+        _totalShares = totalShares.add(shares);
     }
 
     function onExit(uint256 shares, bool, bytes memory) external override onlyVault returns (address, uint256) {
@@ -122,11 +123,12 @@ contract CompoundStrategy is IStrategy {
 
         uint256 initialTokenBalance = _token.balanceOf(address(this));
         uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
-        uint256 ctokenAmount = shares.mul(initialCTokenBalance).div(_totalShares);
+        uint256 totalShares = _totalShares;
+        uint256 ctokenAmount = shares.mul(initialCTokenBalance).div(totalShares);
 
         // Exit is secure enough, no need for emergency exit
         require(_ctoken.redeem(ctokenAmount) == 0, 'COMPOUND_REDEEM_FAILED');
-        _totalShares = _totalShares.sub(shares);
+        _totalShares = totalShares.sub(shares);
 
         uint256 finalTokenBalance = _token.balanceOf(address(this));
         uint256 tokenAmount = finalTokenBalance.sub(initialTokenBalance);
