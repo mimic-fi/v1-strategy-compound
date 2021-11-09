@@ -25,15 +25,11 @@ contract CompoundStrategyFactory {
         vault = _vault;
     }
 
-    function create(
-        IERC20 token,
-        ICToken ctoken,
-        IERC20 comp,
-        Comptroller comptroller,
-        uint256 slippage,
-        string memory metadata
-    ) external returns (CompoundStrategy strategy) {
-        strategy = new CompoundStrategy(vault, token, ctoken, comp, comptroller, slippage, metadata);
+    function create(IERC20 token, ICToken ctoken, Comptroller comptroller, uint256 slippage, string memory metadata)
+        external
+        returns (CompoundStrategy strategy)
+    {
+        strategy = new CompoundStrategy(vault, token, ctoken, comptroller, slippage, metadata);
         emit StrategyCreated(strategy);
     }
 }

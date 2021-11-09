@@ -36,7 +36,6 @@ contract CompoundStrategy is IStrategy {
     IVault internal immutable _vault;
     IERC20 internal immutable _token;
     ICToken internal immutable _ctoken;
-    IERC20 internal immutable _comp;
     Comptroller internal immutable _comptroller;
     uint256 internal immutable _slippage;
     string internal _metadataURI;
@@ -52,7 +51,6 @@ contract CompoundStrategy is IStrategy {
         IVault vault,
         IERC20 token,
         ICToken ctoken,
-        IERC20 comp,
         Comptroller comptroller,
         uint256 slippage,
         string memory metadata
@@ -61,7 +59,6 @@ contract CompoundStrategy is IStrategy {
 
         _token = token;
         _ctoken = ctoken;
-        _comp = comp;
         _comptroller = comptroller;
         _vault = vault;
         _slippage = slippage;
@@ -78,10 +75,6 @@ contract CompoundStrategy is IStrategy {
 
     function getCToken() external view returns (address) {
         return address(_ctoken);
-    }
-
-    function getComp() external view returns (address) {
-        return address(_comp);
     }
 
     function getComptroller() external view returns (address) {
