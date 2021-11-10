@@ -14,10 +14,22 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v1-vault/contracts/Vault.sol';
-import '@mimic-fi/v1-uniswap-connector/contracts/UniswapConnector.sol';
-import '@mimic-fi/v1-chainlink-price-oracle/contracts/ChainLinkPriceOracle.sol';
+import './CompoundStrategy.sol';
 
-contract Imports {
-    // solhint-disable-previous-line no-empty-blocks
+contract CompoundStrategyFactory {
+    event StrategyCreated(CompoundStrategy indexed strategy);
+
+    IVault public vault;
+
+    constructor(IVault _vault) {
+        vault = _vault;
+    }
+
+    function create(IERC20 token, ICToken ctoken, Comptroller comptroller, uint256 slippage, string memory metadata)
+        external
+        returns (CompoundStrategy strategy)
+    {
+        strategy = new CompoundStrategy(vault, token, ctoken, comptroller, slippage, metadata);
+        emit StrategyCreated(strategy);
+    }
 }

@@ -4,20 +4,41 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum/contract
-    name: Compound Strategy
+    name: CompoundStrategyFactory
     network: {{network}}
     source:
-      address: '{{strategy}}'
-      abi: CompoundStrategy
+      address: '{{factory}}'
+      abi: CompoundStrategyFactory
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.3
       language: wasm/assemblyscript
       entities:
-        - Vault
+        - Strategy
       abis:
         - name: CompoundStrategy
+          file: ./abi/CompoundStrategy.json
+        - name: CompoundStrategyFactory
+          file: ./abi/CompoundStrategyFactory.json
+      eventHandlers:
+        - event: StrategyCreated(indexed address)
+          handler: handleStrategyCreated
+      file: ./src/CompoundStrategy.ts
+templates:
+  - kind: ethereum/contract
+    name: Strategy
+    network: {{network}}
+    source:
+      abi: Strategy
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - Strategy
+      abis:
+        - name: Strategy
           file: ./abi/CompoundStrategy.json
       blockHandlers:
         - handler: handleBlock

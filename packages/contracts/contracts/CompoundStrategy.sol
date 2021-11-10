@@ -31,19 +31,16 @@ contract CompoundStrategy is IStrategy {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    uint256 private constant _MAX_SLIPPAGE = 1e18; // 100%
+    uint256 internal constant _MAX_SLIPPAGE = 1e18; // 100%
 
-    uint256 private constant _MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    IVault internal immutable _vault;
+    IERC20 internal immutable _token;
+    ICToken internal immutable _ctoken;
+    Comptroller internal immutable _comptroller;
+    uint256 internal immutable _slippage;
+    string internal _metadataURI;
 
-    IVault private immutable _vault;
-    IERC20 private immutable _token;
-    ICToken private immutable _ctoken;
-    IERC20 private immutable _comp;
-    Comptroller private immutable _comptroller;
-    uint256 private immutable _slippage;
-    string private _metadataURI;
-
-    uint256 private _totalShares;
+    uint256 internal _totalShares;
 
     modifier onlyVault() {
         require(address(_vault) == msg.sender, 'CALLER_IS_NOT_VAULT');
@@ -54,7 +51,6 @@ contract CompoundStrategy is IStrategy {
         IVault vault,
         IERC20 token,
         ICToken ctoken,
-        IERC20 comp,
         Comptroller comptroller,
         uint256 slippage,
         string memory metadata
@@ -63,14 +59,10 @@ contract CompoundStrategy is IStrategy {
 
         _token = token;
         _ctoken = ctoken;
-        _comp = comp;
         _comptroller = comptroller;
         _vault = vault;
         _slippage = slippage;
         _metadataURI = metadata;
-
-        token.approve(address(vault), _MAX_UINT256);
-        token.approve(address(ctoken), _MAX_UINT256);
     }
 
     function getVault() external view returns (address) {
@@ -85,20 +77,23 @@ contract CompoundStrategy is IStrategy {
         return address(_ctoken);
     }
 
-    function getMetadataURI() external view override returns (string memory) {
-        return _metadataURI;
+    function getComptroller() external view returns (address) {
+        return address(_comptroller);
     }
 
-    function getRate() external view override returns (uint256) {
-        //TODO: remove function
-        return 0;
+    function getSlippage() external view returns (uint256) {
+        return _slippage;
+    }
+
+    function getMetadataURI() external view override returns (string memory) {
+        return _metadataURI;
     }
 
     function getTotalShares() external view override returns (uint256) {
         return _totalShares;
     }
 
-    function onJoin(uint256 amount, bytes memory) external override onlyVault returns (uint256) {
+    function onJoin(uint256 amount, bytes memory) external override onlyVault returns (uint256 shares) {
         uint256 initialTokenBalance = _token.balanceOf(address(this));
         uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
 
@@ -106,41 +101,31 @@ contract CompoundStrategy is IStrategy {
 
         uint256 finalCTokenBalance = _ctoken.balanceOf(address(this));
         uint256 cTokenAmount = finalCTokenBalance.sub(initialCTokenBalance);
-
         uint256 callerCTokenAmount = amount.mul(cTokenAmount).div(initialTokenBalance);
 
-        uint256 shares = _totalShares == 0
+        uint256 totalShares = _totalShares;
+        shares = totalShares == 0
             ? callerCTokenAmount
-            : _totalShares.mul(callerCTokenAmount).div(finalCTokenBalance.sub(callerCTokenAmount));
+            : totalShares.mul(callerCTokenAmount).div(finalCTokenBalance.sub(callerCTokenAmount));
 
-        _totalShares = _totalShares.add(shares);
-
-        return shares;
+        _totalShares = totalShares.add(shares);
     }
 
     function onExit(uint256 shares, bool, bytes memory) external override onlyVault returns (address, uint256) {
         invest(_token);
 
-        //initialTokenBalance should be awlays zero after investing, but just in case it check
         uint256 initialTokenBalance = _token.balanceOf(address(this));
         uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
+        uint256 totalShares = _totalShares;
+        uint256 ctokenAmount = shares.mul(initialCTokenBalance).div(totalShares);
 
-        uint256 ctokenAmount = shares.mul(initialCTokenBalance).div(_totalShares);
-
-        //Exit is secure enough, no need for emergency exit
+        // Exit is secure enough, no need for emergency exit
         require(_ctoken.redeem(ctokenAmount) == 0, 'COMPOUND_REDEEM_FAILED');
+        _totalShares = totalShares.sub(shares);
 
         uint256 finalTokenBalance = _token.balanceOf(address(this));
         uint256 tokenAmount = finalTokenBalance.sub(initialTokenBalance);
-
-        _totalShares = _totalShares.sub(shares);
-
         return (address(_token), tokenAmount);
-    }
-
-    function approveTokenSpenders() external {
-        _approveToken(address(_vault));
-        _approveToken(address(_ctoken));
     }
 
     function invest(IERC20 token) public {
@@ -162,61 +147,38 @@ contract CompoundStrategy is IStrategy {
         _comptroller.claimComp(address(this));
     }
 
-    //Private
-
-    function _swap(IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn) private returns (uint256) {
+    function _swap(IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn) internal returns (uint256) {
         require(tokenIn != tokenOut, 'SWAP_SAME_TOKEN');
 
-        address priceOracle = _vault.priceOracle();
-        address swapConnector = _vault.swapConnector();
-
-        uint256 price = IPriceOracle(priceOracle).getTokenPrice(address(tokenOut), address(tokenIn));
-
+        IPriceOracle priceOracle = IPriceOracle(_vault.priceOracle());
+        uint256 price = priceOracle.getTokenPrice(address(tokenOut), address(tokenIn));
         uint256 minAmountOut = FixedPoint.mulUp(FixedPoint.mulUp(amountIn, price), FixedPoint.ONE - _slippage);
 
-        require(
-            ISwapConnector(swapConnector).getAmountOut(address(tokenIn), address(tokenOut), amountIn) >= minAmountOut,
-            'EXPECTED_SWAP_MIN_AMOUNT'
-        );
+        ISwapConnector swapConnector = ISwapConnector(_vault.swapConnector());
+        uint256 expectedAmountOut = swapConnector.getAmountOut(address(tokenIn), address(tokenOut), amountIn);
+        require(expectedAmountOut >= minAmountOut, 'EXPECTED_SWAP_MIN_AMOUNT');
 
-        _safeTransfer(tokenIn, swapConnector, amountIn);
+        if (amountIn > 0) {
+            tokenIn.safeTransfer(address(swapConnector), amountIn);
+        }
 
         uint256 preBalanceIn = tokenIn.balanceOf(address(this));
         uint256 preBalanceOut = tokenOut.balanceOf(address(this));
-        (uint256 remainingIn, uint256 amountOut) = ISwapConnector(swapConnector).swap(
+        (uint256 remainingIn, uint256 amountOut) = swapConnector.swap(
             address(tokenIn),
             address(tokenOut),
             amountIn,
             minAmountOut,
             block.timestamp,
-            ''
+            new bytes(0)
         );
 
         require(amountOut >= minAmountOut, 'SWAP_MIN_AMOUNT');
-
         uint256 postBalanceIn = tokenIn.balanceOf(address(this));
         require(postBalanceIn >= preBalanceIn.add(remainingIn), 'SWAP_INVALID_REMAINING_IN');
-
         uint256 postBalanceOut = tokenOut.balanceOf(address(this));
         require(postBalanceOut >= preBalanceOut.add(amountOut), 'SWAP_INVALID_AMOUNT_OUT');
 
         return amountOut;
-    }
-
-    function _approveToken(address spender) private {
-        uint256 allowance = _token.allowance(address(this), spender);
-        if (allowance < _MAX_UINT256) {
-            if (allowance > 0) {
-                // Some tokens revert when changing non-zero approvals
-                _token.approve(spender, 0);
-            }
-            _token.approve(spender, _MAX_UINT256);
-        }
-    }
-
-    function _safeTransfer(IERC20 token, address to, uint256 amount) private {
-        if (amount > 0) {
-            token.safeTransfer(to, amount);
-        }
     }
 }
