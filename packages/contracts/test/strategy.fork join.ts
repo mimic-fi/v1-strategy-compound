@@ -11,7 +11,6 @@ describe('CompoundStrategy - Join', function () {
     strategy: Contract,
     dai: Contract,
     cdai: Contract,
-    comp: Contract,
     usdc: Contract
 
   // eslint-disable-next-line no-secrets/no-secrets
@@ -20,7 +19,6 @@ describe('CompoundStrategy - Join', function () {
   // eslint-disable-next-line no-secrets/no-secrets
   const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
   const CDAI = '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
-  const COMP = '0xc00e94cb662c3520282e6f5717214004a7f26888'
   const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 
   // eslint-disable-next-line no-secrets/no-secrets
@@ -33,9 +31,6 @@ describe('CompoundStrategy - Join', function () {
   const CHAINLINK_ORACLE_DAI_ETH = '0x773616E4d11A78F511299002da57A0a94577F1f4'
   // eslint-disable-next-line no-secrets/no-secrets
   const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
-  const CHAINLINK_ORACLE_COMP_ETH = '0x1B39Ee86Ec5979ba5C322b826B3ECb8C79991699'
-
-  const MAX_UINT_256 = bn(2).pow(256).sub(1)
 
   before('load signers', async () => {
     owner = await getSigner()
@@ -50,8 +45,8 @@ describe('CompoundStrategy - Join', function () {
     const whitelistedTokens: string[] = []
     const whitelistedStrategies: string[] = []
 
-    const priceOracleTokens: string[] = [DAI, USDC, COMP]
-    const priceOracleFeeds: string[] = [CHAINLINK_ORACLE_DAI_ETH, CHAINLINK_ORACLE_USDC_ETH, CHAINLINK_ORACLE_COMP_ETH]
+    const priceOracleTokens: string[] = [DAI, USDC]
+    const priceOracleFeeds: string[] = [CHAINLINK_ORACLE_DAI_ETH, CHAINLINK_ORACLE_USDC_ETH]
 
     const priceOracle = await deploy('ChainLinkPriceOracle', [priceOracleTokens, priceOracleFeeds])
     const swapConnector = await deploy('UniswapConnector', [UNISWAP_V2_ROUTER_ADDRESS])
@@ -69,7 +64,6 @@ describe('CompoundStrategy - Join', function () {
   before('load tokens', async () => {
     dai = await instanceAt('IERC20', DAI)
     cdai = await instanceAt('ICToken', CDAI)
-    comp = await instanceAt('IERC20', COMP)
     usdc = await instanceAt('IERC20', USDC)
   })
 
@@ -80,20 +74,15 @@ describe('CompoundStrategy - Join', function () {
 
   before('deploy strategy', async () => {
     const slippage = fp(0.01)
+
     strategy = await deploy('CompoundStrategy', [
       vault.address,
       dai.address,
       cdai.address,
-      comp.address,
       COMPTROLLER,
       slippage,
       'metadata:uri',
     ])
-  })
-
-  it('vault has max DAI allowance', async () => {
-    const allowance = await dai.allowance(strategy.address, vault.address)
-    expect(allowance).to.be.equal(MAX_UINT_256)
   })
 
   it('join strategy', async () => {
@@ -145,16 +134,6 @@ describe('CompoundStrategy - Join', function () {
 
     const totalShares = await strategy.getTotalShares()
     expect(totalShares).to.be.equal(0)
-  })
-
-  it('can give token allowance to vault and ctoken', async () => {
-    await strategy.approveTokenSpenders()
-
-    const vaultAllowance = await dai.allowance(strategy.address, vault.address)
-    expect(vaultAllowance).to.be.equal(MAX_UINT_256)
-
-    const cdaiAllowance = await dai.allowance(strategy.address, cdai.address)
-    expect(cdaiAllowance).to.be.equal(MAX_UINT_256)
   })
 
   it('handle DAI airdrops', async () => {
