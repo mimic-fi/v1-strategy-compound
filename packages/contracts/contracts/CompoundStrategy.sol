@@ -125,6 +125,8 @@ contract CompoundStrategy is IStrategy {
 
         uint256 finalTokenBalance = _token.balanceOf(address(this));
         uint256 tokenAmount = finalTokenBalance.sub(initialTokenBalance);
+
+        _token.approve(address(_vault), tokenAmount);
         return (address(_token), tokenAmount);
     }
 
@@ -139,6 +141,8 @@ contract CompoundStrategy is IStrategy {
             }
             tokenBalance = _token.balanceOf(address(this));
         }
+
+        _token.approve(address(_ctoken), tokenBalance);
 
         require(_ctoken.mint(tokenBalance) == 0, 'COMPOUND_MINT_FAILED');
     }

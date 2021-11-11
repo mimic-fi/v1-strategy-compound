@@ -4,12 +4,11 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('CompoundStrategy - Deploy', function () {
-  let owner: SignerWithAddress, vault: Contract, strategy: Contract, dai: Contract, cdai: Contract, comp: Contract
+  let owner: SignerWithAddress, vault: Contract, strategy: Contract, dai: Contract, cdai: Contract
 
   // eslint-disable-next-line no-secrets/no-secrets
   const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
   const CDAI = '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
-  const COMP = '0xc00e94cb662c3520282e6f5717214004a7f26888'
 
   before('load signers', async () => {
     owner = await getSigner()
@@ -37,7 +36,6 @@ describe('CompoundStrategy - Deploy', function () {
   before('load tokens', async () => {
     dai = await instanceAt('IERC20', DAI)
     cdai = await instanceAt('ICToken', CDAI)
-    comp = await instanceAt('IERC20', COMP)
   })
 
   it('deploy strategy', async () => {
@@ -46,7 +44,6 @@ describe('CompoundStrategy - Deploy', function () {
       vault.address,
       dai.address,
       cdai.address,
-      comp.address,
       ZERO_ADDRESS,
       slippage,
       'metadata:uri',
