@@ -112,10 +112,9 @@ contract CompoundStrategy is IStrategy {
     }
 
     function onExit(uint256 shares, bool, bytes memory) external override onlyVault returns (address, uint256) {
-        IERC20 token = _token;
-        invest(token);
+        invest(_token);
 
-        uint256 initialTokenBalance = token.balanceOf(address(this));
+        uint256 initialTokenBalance = _token.balanceOf(address(this));
         uint256 initialCTokenBalance = _ctoken.balanceOf(address(this));
         uint256 totalShares = _totalShares;
         uint256 ctokenAmount = shares.mul(initialCTokenBalance).div(totalShares);
@@ -124,11 +123,11 @@ contract CompoundStrategy is IStrategy {
         require(_ctoken.redeem(ctokenAmount) == 0, 'COMPOUND_REDEEM_FAILED');
         _totalShares = totalShares.sub(shares);
 
-        uint256 finalTokenBalance = token.balanceOf(address(this));
+        uint256 finalTokenBalance = _token.balanceOf(address(this));
         uint256 tokenAmount = finalTokenBalance.sub(initialTokenBalance);
 
-        token.approve(address(_vault), tokenAmount);
-        return (address(token), tokenAmount);
+        _token.approve(address(_vault), tokenAmount);
+        return (address(_token), tokenAmount);
     }
 
     function invest(IERC20 token) public {
