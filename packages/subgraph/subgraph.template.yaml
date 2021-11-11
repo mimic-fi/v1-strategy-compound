@@ -40,6 +40,10 @@ templates:
       abis:
         - name: Strategy
           file: ./abi/CompoundStrategy.json
+        - name: ERC20
+          file: ./abi/IERC20.json
+        - name: CToken
+          file: ./abi/ICToken.json
       blockHandlers:
         - handler: handleBlock
       file: ./src/CompoundStrategy.ts
