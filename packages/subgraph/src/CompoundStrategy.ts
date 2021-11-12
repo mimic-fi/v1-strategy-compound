@@ -100,10 +100,14 @@ function storeLastRate(strategy: StrategyEntity, currentRate: BigInt, accumulate
 
 function calculateRate(strategy: StrategyEntity): BigInt {
   let strategyAddress = Address.fromString(strategy.id)
+  let totalShares = getStrategyShares(strategyAddress)
+  if (totalShares.equals(BigInt.fromI32(0))) {
+    return BigInt.fromI32(0)
+  }
+
   let cTokenAddress = getStrategyCToken(strategyAddress)
   let cTokenBalance = getTokenBalance(cTokenAddress, strategyAddress)
   let exchangeRate = getCTokenExchangeRate(cTokenAddress)
-  let totalShares = getStrategyShares(strategyAddress)
   return cTokenBalance.times(exchangeRate).div(totalShares)
 }
 
