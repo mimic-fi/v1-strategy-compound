@@ -1,6 +1,8 @@
 import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 
 import { StrategyCreated } from '../types/CompoundStrategyFactory/CompoundStrategyFactory'
+import { ERC20 as ERC20Contract } from '../types/templates/CompoundStrategy/ERC20'
+import { CToken as CTokenContract } from '../types/templates/CompoundStrategy/CToken'
 import { CompoundStrategy as StrategyContract } from '../types/CompoundStrategyFactory/CompoundStrategy'
 import { CompoundStrategyFactory as FactoryContract } from '../types/CompoundStrategyFactory/CompoundStrategyFactory'
 import { Factory as FactoryEntity, Strategy as StrategyEntity, Rate as RateEntity } from '../types/schema'
@@ -65,7 +67,7 @@ function loadOrCreateStrategy(strategyAddress: Address, factoryAddress: Address)
 }
 
 function createLastRate(strategy: StrategyEntity, block: ethereum.Block): void {
-  let currentRate = calculateRate()
+  let currentRate = calculateRate(strategy)
 
   if (strategy.lastRate === null) {
     storeLastRate(strategy, currentRate, BigInt.fromI32(0), block)
@@ -96,9 +98,17 @@ function storeLastRate(strategy: StrategyEntity, currentRate: BigInt, accumulate
   strategy.save()
 }
 
-function calculateRate(): BigInt {
-  // TODO: implement
-  return BigInt.fromI32(0)
+function calculateRate(strategy: StrategyEntity): BigInt {
+  let strategyAddress = Address.fromString(strategy.id)
+  let totalShares = getStrategyShares(strategyAddress)
+  if (totalShares.equals(BigInt.fromI32(0))) {
+    return BigInt.fromI32(0)
+  }
+
+  let cTokenAddress = getStrategyCToken(strategyAddress)
+  let cTokenBalance = getTokenBalance(cTokenAddress, strategyAddress)
+  let exchangeRate = getCTokenExchangeRate(cTokenAddress)
+  return cTokenBalance.times(exchangeRate).div(totalShares)
 }
 
 function getFactoryVault(address: Address): string {
@@ -147,4 +157,40 @@ function getStrategyMetadata(address: Address): string {
 
   log.warning('getMetadataURI() call reverted for {}', [address.toHexString()])
   return 'Unknown'
+}
+
+function getStrategyCToken(address: Address): Address {
+  let strategyContract = StrategyContract.bind(address)
+  let cTokenCall = strategyContract.try_getCToken()
+
+  if (!cTokenCall.reverted) {
+    return cTokenCall.value
+  }
+
+  log.warning('getCToken() call reverted for {}', [address.toHexString()])
+  return Address.fromString('0x0000000000000000000000000000000000000000')
+}
+
+function getTokenBalance(address: Address, account: Address): BigInt {
+  let tokenContract = ERC20Contract.bind(address)
+  let balanceCall = tokenContract.try_balanceOf(account)
+
+  if (!balanceCall.reverted) {
+    return balanceCall.value
+  }
+
+  log.warning('balanceOf() call reverted for {}', [address.toHexString()])
+  return BigInt.fromI32(0)
+}
+
+function getCTokenExchangeRate(address: Address): BigInt {
+  let cTokenContract = CTokenContract.bind(address)
+  let rateCall = cTokenContract.try_exchangeRateStored()
+
+  if (!rateCall.reverted) {
+    return rateCall.value
+  }
+
+  log.warning('exchangeRateStored() call reverted for {}', [address.toHexString()])
+  return BigInt.fromI32(0)
 }

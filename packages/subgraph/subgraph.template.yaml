@@ -27,10 +27,10 @@ dataSources:
       file: ./src/CompoundStrategy.ts
 templates:
   - kind: ethereum/contract
-    name: Strategy
+    name: CompoundStrategy
     network: {{network}}
     source:
-      abi: Strategy
+      abi: CompoundStrategy
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.3
@@ -38,8 +38,12 @@ templates:
       entities:
         - Strategy
       abis:
-        - name: Strategy
+        - name: CompoundStrategy
           file: ./abi/CompoundStrategy.json
+        - name: ERC20
+          file: ./abi/IERC20.json
+        - name: CToken
+          file: ./abi/ICToken.json
       blockHandlers:
         - handler: handleBlock
       file: ./src/CompoundStrategy.ts
