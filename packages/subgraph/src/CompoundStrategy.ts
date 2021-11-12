@@ -1,8 +1,8 @@
 import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 
 import { StrategyCreated } from '../types/CompoundStrategyFactory/CompoundStrategyFactory'
-import { ERC20 as ERC20Contract } from '../types/templates/Strategy/ERC20'
-import { CToken as CTokenContract } from '../types/templates/Strategy/CToken'
+import { ERC20 as ERC20Contract } from '../types/templates/CompoundStrategy/ERC20'
+import { CToken as CTokenContract } from '../types/templates/CompoundStrategy/CToken'
 import { CompoundStrategy as StrategyContract } from '../types/CompoundStrategyFactory/CompoundStrategy'
 import { CompoundStrategyFactory as FactoryContract } from '../types/CompoundStrategyFactory/CompoundStrategyFactory'
 import { Factory as FactoryEntity, Strategy as StrategyEntity, Rate as RateEntity } from '../types/schema'
