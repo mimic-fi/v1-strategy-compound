@@ -4,14 +4,14 @@
 set -o errexit
 
 # Factory addresses
-factory_localhost=0x646A336CD183dc947D3AdbEfb19c3cF637720318
-factory_kovan=0x2533b011dDd4417F4D616339237Ce316388c70b0
-factory_rinkeby=0x3683799B950B9680Fe9B5169e641e6DA5Fc751Ad
+factory_localhost=0x0000000000000000000000000000000000000001
+factory_kovan=0xfd9e5AB41CB84F237B6a33c5C6f167e06407Fd81
+factory_rinkeby=0x0000000000000000000000000000000000000001
 factory_mainnet=0x0000000000000000000000000000000000000001
 
 # Deployment block numbers
-start_block_kovan=27318406
-start_block_rinkeby=9264082
+start_block_kovan=28398359
+start_block_rinkeby=
 start_block_mainnet=
 
 # Validate network

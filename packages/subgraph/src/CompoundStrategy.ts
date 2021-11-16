@@ -51,6 +51,7 @@ function loadOrCreateStrategy(strategyAddress: Address, factoryAddress: Address)
 
   if (strategy === null) {
     strategy = new StrategyEntity(id)
+    strategy.factory = factoryAddress.toHexString()
     strategy.vault = getFactoryVault(factoryAddress)
     strategy.token = ''
     strategy.metadata = ''
