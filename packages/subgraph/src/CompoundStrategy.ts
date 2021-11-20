@@ -3,22 +3,23 @@ import { Address, BigInt, ethereum, log } from '@graphprotocol/graph-ts'
 import { StrategyCreated } from '../types/CompoundStrategyFactory/CompoundStrategyFactory'
 import { ERC20 as ERC20Contract } from '../types/templates/CompoundStrategy/ERC20'
 import { CToken as CTokenContract } from '../types/templates/CompoundStrategy/CToken'
+import { CompoundStrategy as StrategyTemplate } from '../types/templates'
 import { CompoundStrategy as StrategyContract } from '../types/CompoundStrategyFactory/CompoundStrategy'
 import { CompoundStrategyFactory as FactoryContract } from '../types/CompoundStrategyFactory/CompoundStrategyFactory'
 import { Factory as FactoryEntity, Strategy as StrategyEntity, Rate as RateEntity } from '../types/schema'
 
 let FACTORY_ID = 'COMPOUND'
-
 let ONE = BigInt.fromString('1000000000000000000')
 
 export function handleStrategyCreated(event: StrategyCreated): void {
   let factory = loadOrCreateFactory(event.address)
-  let strategy = loadOrCreateStrategy(event.params.strategy, event.address)
 
   let strategies = factory.strategies
-  strategies.push(strategy.id)
+  strategies.push(event.params.strategy.toHexString())
   factory.strategies = strategies
   factory.save()
+
+  StrategyTemplate.create(event.params.strategy)
 }
 
 export function handleBlock(block: ethereum.Block): void {
@@ -26,7 +27,7 @@ export function handleBlock(block: ethereum.Block): void {
   if (factory !== null && factory.strategies !== null) {
     let strategies = factory.strategies
     for (let i: i32 = 0; i < strategies.length; i++) {
-      let strategy = StrategyEntity.load(strategies[i])
+      let strategy = loadOrCreateStrategy(strategies[i], factory.id, factory.address)
       if (strategy !== null) createLastRate(strategy!, block)
     }
   }
@@ -45,22 +46,17 @@ function loadOrCreateFactory(factoryAddress: Address): FactoryEntity {
   return factory!
 }
 
-function loadOrCreateStrategy(strategyAddress: Address, factoryAddress: Address): StrategyEntity {
-  let id = strategyAddress.toHexString()
-  let strategy = StrategyEntity.load(id)
+function loadOrCreateStrategy(strategyAddress: string, factoryId: string, factoryAddress: string): StrategyEntity {
+  let strategy = StrategyEntity.load(strategyAddress)
 
   if (strategy === null) {
-    strategy = new StrategyEntity(id)
-    strategy.factory = factoryAddress.toHexString()
-    strategy.vault = getFactoryVault(factoryAddress)
-    strategy.token = ''
-    strategy.metadata = ''
+    strategy = new StrategyEntity(strategyAddress)
+    strategy.factory = factoryId
+    strategy.vault = getFactoryVault(factoryAddress).toHexString()
+    strategy.token = getStrategyToken(strategyAddress).toHexString()
+    strategy.metadata = getStrategyMetadata(strategyAddress)
     strategy.deposited = BigInt.fromI32(0)
     strategy.shares = BigInt.fromI32(0)
-    strategy.save()
-  } else if (strategy.metadata == '') {
-    strategy.token = getStrategyToken(strategyAddress)
-    strategy.metadata = getStrategyMetadata(strategyAddress)
     strategy.save()
   }
 
@@ -76,22 +72,28 @@ function createLastRate(strategy: StrategyEntity, block: ethereum.Block): void {
     let lastRate = RateEntity.load(strategy.lastRate)!
     if (lastRate.value.notEqual(currentRate)) {
       let elapsed = block.number.minus(lastRate.block)
-      let accumulated = lastRate.accumulated.plus(lastRate.value.times(elapsed))
+      let accumulators = lastRate.accumulators
+      let accumulated = accumulators[0].plus(lastRate.value.times(elapsed))
       storeLastRate(strategy, currentRate, accumulated, block)
     }
   }
 }
 
 function storeLastRate(strategy: StrategyEntity, currentRate: BigInt, accumulated: BigInt, block: ethereum.Block): void {
-  let shares = getStrategyShares(Address.fromString(strategy.id))
+  let shares = getStrategyShares(strategy.id)
   let rateId = strategy.id + '-' + block.timestamp.toString()
   let rate = new RateEntity(rateId)
   rate.value = currentRate
-  rate.accumulated = accumulated
+  rate.accumulators = []
   rate.shares = shares
   rate.strategy = strategy.id
   rate.timestamp = block.timestamp
   rate.block = block.number
+  rate.save()
+
+  let accumulators = rate.accumulators
+  accumulators.push(accumulated)
+  rate.accumulators = accumulators
   rate.save()
 
   strategy.lastRate = rateId
@@ -100,63 +102,63 @@ function storeLastRate(strategy: StrategyEntity, currentRate: BigInt, accumulate
 }
 
 function calculateRate(strategy: StrategyEntity): BigInt {
-  let strategyAddress = Address.fromString(strategy.id)
-  let totalShares = getStrategyShares(strategyAddress)
+  let totalShares = getStrategyShares(strategy.id)
   if (totalShares.equals(BigInt.fromI32(0))) {
     return BigInt.fromI32(0)
   }
 
+  let strategyAddress = Address.fromString(strategy.id)
   let cTokenAddress = getStrategyCToken(strategyAddress)
   let cTokenBalance = getTokenBalance(cTokenAddress, strategyAddress)
   let exchangeRate = getCTokenExchangeRate(cTokenAddress)
   return cTokenBalance.times(exchangeRate).div(totalShares)
 }
 
-function getFactoryVault(address: Address): string {
-  let factoryContract = FactoryContract.bind(address)
+function getFactoryVault(address: string): Address {
+  let factoryContract = FactoryContract.bind(Address.fromString(address))
   let vaultCall = factoryContract.try_vault()
 
   if (!vaultCall.reverted) {
-    return vaultCall.value.toHexString()
+    return vaultCall.value
   }
 
-  log.warning('vault() call reverted for {}', [address.toHexString()])
-  return 'Unknown'
+  log.warning('vault() call reverted for {}', [address])
+  return Address.fromString('0x0000000000000000000000000000000000000000')
 }
 
-function getStrategyShares(address: Address): BigInt {
-  let strategyContract = StrategyContract.bind(address)
+function getStrategyShares(address: string): BigInt {
+  let strategyContract = StrategyContract.bind(Address.fromString(address))
   let sharesCall = strategyContract.try_getTotalShares()
 
   if (!sharesCall.reverted) {
     return sharesCall.value
   }
 
-  log.warning('getTotalShares() call reverted for {}', [address.toHexString()])
+  log.warning('getTotalShares() call reverted for {}', [address])
   return BigInt.fromI32(0)
 }
 
-function getStrategyToken(address: Address): string {
-  let strategyContract = StrategyContract.bind(address)
+function getStrategyToken(address: string): Address {
+  let strategyContract = StrategyContract.bind(Address.fromString(address))
   let tokenCall = strategyContract.try_getToken()
 
   if (!tokenCall.reverted) {
-    return tokenCall.value.toHexString()
+    return tokenCall.value
   }
 
-  log.warning('getToken() call reverted for {}', [address.toHexString()])
-  return 'Unknown'
+  log.warning('getToken() call reverted for {}', [address])
+  return Address.fromString('0x0000000000000000000000000000000000000000')
 }
 
-function getStrategyMetadata(address: Address): string {
-  let strategyContract = StrategyContract.bind(address)
+function getStrategyMetadata(address: string): string {
+  let strategyContract = StrategyContract.bind(Address.fromString(address))
   let metadataCall = strategyContract.try_getMetadataURI()
 
   if (!metadataCall.reverted) {
     return metadataCall.value
   }
 
-  log.warning('getMetadataURI() call reverted for {}', [address.toHexString()])
+  log.warning('getMetadataURI() call reverted for {}', [address])
   return 'Unknown'
 }
 

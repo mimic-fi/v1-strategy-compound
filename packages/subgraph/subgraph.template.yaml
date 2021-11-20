@@ -40,6 +40,8 @@ templates:
       abis:
         - name: CompoundStrategy
           file: ./abi/CompoundStrategy.json
+        - name: CompoundStrategyFactory
+          file: ./abi/CompoundStrategyFactory.json
         - name: ERC20
           file: ./abi/IERC20.json
         - name: CToken
