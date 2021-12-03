@@ -1,5 +1,5 @@
 {
-  "name": "@mimic-fi/v1-strategy-compound-contracts",
+  "name": "@mimic-fi/v1-strategy-compound",
   "version": "0.0.1",
   "license": "GPL-3.0",
   "engines": {
@@ -9,7 +9,7 @@
     "build": "yarn compile",
     "compile": "hardhat compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
-    "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
+    "lint:solidity": "solhint 'contracts/**/*.sol' --config ./node_modules/solhint-config-mimic/index.js",
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test ./test/*.ts",
     "test:fork": "yarn test --fork mainnet --block-number 12731159"
