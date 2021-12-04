@@ -63,6 +63,7 @@ contract CompoundStrategy is IStrategy {
         _vault = vault;
         _slippage = slippage;
         _metadataURI = metadata;
+        emit SetMetadataURI(metadata);
     }
 
     function getVault() external view returns (address) {
