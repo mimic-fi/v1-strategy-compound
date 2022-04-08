@@ -30,6 +30,7 @@ contract CompoundStrategyFactory {
         returns (CompoundStrategy strategy)
     {
         strategy = new CompoundStrategy(vault, token, ctoken, comptroller, slippage, metadata);
+        strategy.transferOwnership(msg.sender);
         emit StrategyCreated(strategy);
     }
 }
