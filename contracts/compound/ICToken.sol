@@ -16,7 +16,11 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
+import './Comptroller.sol';
+
 interface ICToken is IERC20 {
+    function comptroller() external view returns (Comptroller);
+
     function mint(uint256 mintAmount) external returns (uint256);
 
     function redeem(uint256 redeemTokens) external returns (uint256);
