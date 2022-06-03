@@ -62,49 +62,93 @@ contract CompoundStrategy is IStrategy, Ownable {
         _setMetadataURI(metadataURI);
     }
 
+    /**
+     * @dev Tells the address of the Mimic Vault
+     */
     function getVault() external view returns (address) {
         return address(_vault);
     }
 
+    /**
+     * @dev Tells the token that will be used as the strategy entry point
+     */
     function getToken() external view override returns (address) {
         return address(_token);
     }
 
+    /**
+     * @dev Tells the Compound token associated to the strategy token
+     */
     function getCToken() external view returns (address) {
         return address(_cToken);
     }
 
+    /**
+     * @dev Tells the COMP address
+     */
+    function getComp() external view returns (address) {
+        return address(_comp);
+    }
+
+    /**
+     * @dev Tells the address of the Compound controller
+     */
     function getComptroller() external view returns (address) {
         return address(_comptroller);
     }
 
+    /**
+     * @dev Tell the slippage used to swap rewards
+     */
     function getSlippage() external view returns (uint256) {
         return _slippage;
     }
 
+    /**
+     * @dev Tell the metadata URI associated to the strategy
+     */
     function getMetadataURI() external view override returns (string memory) {
         return _metadataURI;
     }
 
-    function getValueRate() external pure override returns (uint256) {
-        return FixedPoint.ONE;
-    }
-
+    /**
+     * @dev Tells how much value the strategy has over time.
+     * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
+     * It means it gained a 20% between T0 and T1 due to the appreciation of the C token and comp rewards.
+     * Note: This function only tells the total value until the last claim
+     */
     function getTotalValue() public view override returns (uint256) {
-        // Note: This function only tells the total value until the last claim
         uint256 cTokenRate = _cToken.exchangeRateStored();
         uint256 cTokenBalance = _cToken.balanceOf(address(this));
         return cTokenBalance.mulDown(cTokenRate);
     }
 
+    /**
+     * @dev Tells how much a value unit means expressed in the strategy token.
+     * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
+     * and the value rate is 1.5, it means the strategy has earned 30 strategy tokens between T0 and T1.
+     */
+    function getValueRate() external pure override returns (uint256) {
+        return FixedPoint.ONE;
+    }
+
+    /**
+     * @dev Setter to update the slippage
+     */
     function setSlippage(uint256 newSlippage) external onlyOwner {
         _setSlippage(newSlippage);
     }
 
+    /**
+     * @dev Setter to override the existing metadata URI
+     */
     function setMetadataURI(string memory metadataURI) external onlyOwner {
         _setMetadataURI(metadataURI);
     }
 
+    /**
+     * @dev Strategy onJoin hook
+     */
     function onJoin(uint256 amount, bytes memory)
         external
         override
@@ -127,6 +171,9 @@ contract CompoundStrategy is IStrategy, Ownable {
         totalValue = finalCTokenBalance.mulDown(cTokenRate);
     }
 
+    /**
+     * @dev Strategy onExit hook
+     */
     function onExit(uint256 ratio, bool emergency, bytes memory)
         external
         override
@@ -156,6 +203,9 @@ contract CompoundStrategy is IStrategy, Ownable {
         return (address(_token), tokenAmount, value, totalValue);
     }
 
+    /**
+     * @dev Claims Compound rewards and swap them for the strategy token.
+     */
     function claim() public {
         // TODO: check non-zero
         // Claim COMP and swap for strategy token
@@ -163,6 +213,11 @@ contract CompoundStrategy is IStrategy, Ownable {
         _swap(_comp, _token, _comp.balanceOf(address(this)));
     }
 
+    /**
+     * @dev Invest all the balance of a token in the strategy into Compound.
+     * If the requested token is not the same token as the strategy token it will be swapped before joining the pool.
+     * This method is marked as public so it can be used externally by anyone in case of an airdrop.
+     */
     function invest(IERC20 token) public {
         require(token != _cToken, 'COMPOUND_INTERNAL_TOKEN');
 
@@ -177,12 +232,19 @@ contract CompoundStrategy is IStrategy, Ownable {
         require(_cToken.mint(amount) == 0, 'COMPOUND_MINT_FAILED');
     }
 
+    /**
+     * @dev Claims and invest rewards.
+     * @return Current total value after investing all accrued rewards.
+     */
     function claimAndInvest() external returns (uint256) {
         claim();
         invest(_token);
         return getTotalValue();
     }
 
+    /**
+     * @dev Internal function to swap a pair of tokens using the Vault's swap connector
+     */
     function _swap(IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn) internal {
         if (amountIn == 0) return;
         require(tokenIn != tokenOut, 'SWAP_SAME_TOKEN');
@@ -213,14 +275,20 @@ contract CompoundStrategy is IStrategy, Ownable {
         require(postBalanceOut >= preBalanceOut.add(amountOut), 'SWAP_INVALID_AMOUNT_OUT');
     }
 
+    /**
+     * @dev Internal function to set the metadata URI
+     */
+    function _setMetadataURI(string memory newMetadataURI) private {
+        _metadataURI = newMetadataURI;
+        emit SetMetadataURI(newMetadataURI);
+    }
+
+    /**
+     * @dev Internal function to set the slippage
+     */
     function _setSlippage(uint256 newSlippage) private {
         require(newSlippage <= MAX_SLIPPAGE, 'SLIPPAGE_ABOVE_MAX');
         _slippage = newSlippage;
         emit SetSlippage(newSlippage);
-    }
-
-    function _setMetadataURI(string memory newMetadataURI) private {
-        _metadataURI = newMetadataURI;
-        emit SetMetadataURI(newMetadataURI);
     }
 }
