@@ -207,9 +207,10 @@ contract CompoundStrategy is IStrategy, Ownable {
      * @dev Claims Compound rewards and swap them for the strategy token.
      */
     function claim() public {
-        // TODO: check non-zero
-        // Claim COMP and swap for strategy token
-        _comptroller.claimComp(address(this));
+        if (_comptroller.compAccrued(address(this)) == 0) return;
+        address[] memory cTokens = new address[](1);
+        cTokens[0] = address(_cToken);
+        _comptroller.claimComp(address(this), cTokens);
         _swap(_comp, _token, _comp.balanceOf(address(this)));
     }
 

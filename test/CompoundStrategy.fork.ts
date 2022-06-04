@@ -5,9 +5,9 @@ import {
   deploy,
   fp,
   getSigners,
-  HOUR,
   impersonateWhale,
   instanceAt,
+  MONTH,
 } from '@mimic-fi/v1-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -155,7 +155,8 @@ describe('CompoundStrategy - DAI', function () {
   it('accrues value over time', async () => {
     const previousValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
 
-    await advanceTime(HOUR)
+    await advanceTime(MONTH)
+    await cdai.exchangeRateCurrent()
     await strategy.claimAndInvest()
 
     const currentValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
