@@ -5,7 +5,7 @@ import {
   deploy,
   fp,
   getSigners,
-  impersonateWhale,
+  impersonate,
   instanceAt,
   MONTH,
 } from '@mimic-fi/v1-helpers'
@@ -19,6 +19,7 @@ const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
 const CDAI = '0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643'
 const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const COMP = '0xc00e94cb662c3520282e6f5717214004a7f26888'
+const WHALE = '0x47ac0fb4f2d84898e4d9e7b4dab3c24507a6d503'
 
 const UNISWAP_V2_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 const UNISWAP_V3_ROUTER = '0xE592427A0AEce92De3Edee1F18E0157C05861564'
@@ -30,7 +31,7 @@ const CHAINLINK_ORACLE_COMP_ETH = '0x1b39ee86ec5979ba5c322b826b3ecb8c79991699'
 
 describe('CompoundStrategy - DAI', function () {
   let whale: SignerWithAddress, owner: SignerWithAddress
-  let vault: Contract, strategy: Contract, dai: Contract, cdai: Contract, usdc: Contract
+  let vault: Contract, strategy: Contract, dai: Contract, cDai: Contract, usdc: Contract
 
   const SLIPPAGE = fp(0.01)
   const JOIN_AMOUNT = fp(50)
@@ -43,7 +44,7 @@ describe('CompoundStrategy - DAI', function () {
   before('load signers', async () => {
     // eslint-disable-next-line prettier/prettier
     [, owner] = await getSigners()
-    whale = await impersonateWhale(fp(100))
+    whale = await impersonate(WHALE, fp(100))
   })
 
   before('deploy vault', async () => {
@@ -83,19 +84,19 @@ describe('CompoundStrategy - DAI', function () {
 
   before('load tokens', async () => {
     dai = await instanceAt('IERC20', DAI)
-    cdai = await instanceAt('ICToken', CDAI)
+    cDai = await instanceAt('ICToken', CDAI)
     usdc = await instanceAt('IERC20', USDC)
   })
 
   before('deposit tokens', async () => {
     await dai.connect(whale).approve(vault.address, fp(100))
-    await vault.connect(whale).deposit(whale.address, dai.address, fp(100), '0x')
+    await vault.connect(whale).deposit(WHALE, DAI, fp(100), '0x')
   })
 
   it('deploys the strategy correctly', async () => {
     expect(await strategy.getVault()).to.be.equal(vault.address)
-    expect(await strategy.getToken()).to.be.equal(dai.address)
-    expect(await strategy.getCToken()).to.be.equal(cdai.address)
+    expect(await strategy.getToken()).to.be.equal(DAI)
+    expect(await strategy.getCToken()).to.be.equal(CDAI)
     expect(await strategy.getSlippage()).to.be.equal(SLIPPAGE)
     expect(await strategy.getMetadataURI()).to.be.equal('metadata:uri')
     expect(await strategy.getTotalValue()).to.be.equal(0)
@@ -129,7 +130,7 @@ describe('CompoundStrategy - DAI', function () {
     const previousStrategyBalance = await dai.balanceOf(strategy.address)
     expect(previousStrategyBalance).to.be.equal(0)
 
-    await vault.connect(whale).join(whale.address, strategy.address, JOIN_AMOUNT, '0x')
+    await vault.connect(whale).join(WHALE, strategy.address, JOIN_AMOUNT, '0x')
 
     const currentVaultBalance = await dai.balanceOf(vault.address)
     expect(currentVaultBalance).to.be.equal(previousVaultBalance.sub(JOIN_AMOUNT))
@@ -137,10 +138,10 @@ describe('CompoundStrategy - DAI', function () {
     const currentStrategyBalance = await dai.balanceOf(strategy.address)
     expect(currentStrategyBalance).to.be.equal(previousStrategyBalance)
 
-    const cDaiRate = await cdai.exchangeRateStored()
-    const cDaiBalance = await cdai.balanceOf(strategy.address)
+    const cDaiRate = await cDai.exchangeRateStored()
+    const cDaiBalance = await cDai.balanceOf(strategy.address)
     const expectedValue = cDaiBalance.mul(cDaiRate).div(fp(1))
-    const { invested, shares } = await vault.getAccountInvestment(whale.address, strategy.address)
+    const { invested, shares } = await vault.getAccountInvestment(WHALE, strategy.address)
     expectWithError(invested, expectedValue)
     expectWithError(shares, expectedValue)
 
@@ -148,40 +149,40 @@ describe('CompoundStrategy - DAI', function () {
     expectWithError(shares, strategyShares)
 
     const strategyShareValue = await vault.getStrategyShareValue(strategy.address)
-    const accountValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const accountValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
     expectWithError(accountValue, strategyShares.mul(strategyShareValue).div(fp(1)))
   })
 
   it('accrues value over time', async () => {
-    const previousValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const previousValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
 
     await advanceTime(MONTH)
-    await cdai.exchangeRateCurrent()
+    await cDai.exchangeRateCurrent()
     await strategy.claimAndInvest()
 
-    const currentValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const currentValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
     expect(currentValue).to.be.gt(previousValue)
   })
 
   it('exits with a 50%', async () => {
-    const previousBalance = await vault.getAccountBalance(whale.address, dai.address)
-    const previousInvestment = await vault.getAccountInvestment(whale.address, strategy.address)
+    const previousBalance = await vault.getAccountBalance(WHALE, DAI)
+    const previousInvestment = await vault.getAccountInvestment(WHALE, strategy.address)
 
     const exitRatio = fp(0.5)
-    await vault.connect(whale).exit(whale.address, strategy.address, exitRatio, false, '0x')
+    await vault.connect(whale).exit(WHALE, strategy.address, exitRatio, false, '0x')
 
     // The user should at least have some gains
-    const currentBalance = await vault.getAccountBalance(whale.address, dai.address)
+    const currentBalance = await vault.getAccountBalance(WHALE, DAI)
     expect(currentBalance).to.be.gt(previousBalance)
 
     // There should not be any remaining tokens in the strategy
     const currentStrategyBalance = await dai.balanceOf(strategy.address)
     expect(currentStrategyBalance).to.be.equal(0)
 
-    const cDaiRate = await cdai.exchangeRateStored()
-    const cDaiBalance = await cdai.balanceOf(strategy.address)
+    const cDaiRate = await cDai.exchangeRateStored()
+    const cDaiBalance = await cDai.balanceOf(strategy.address)
     const expectedValue = cDaiBalance.mul(cDaiRate).div(fp(1))
-    const currentInvestment = await vault.getAccountInvestment(whale.address, strategy.address)
+    const currentInvestment = await vault.getAccountInvestment(WHALE, strategy.address)
     expectWithError(currentInvestment.invested, expectedValue)
     expectWithError(currentInvestment.shares, previousInvestment.shares.mul(fp(1).sub(exitRatio)).div(fp(1)))
 
@@ -189,7 +190,7 @@ describe('CompoundStrategy - DAI', function () {
     expectWithError(strategyShares, currentInvestment.shares)
 
     // TODO: Review rounding issue
-    const accountValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const accountValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
     const strategyShareValue = await vault.getStrategyShareValue(strategy.address)
     const expectedAccountValue = strategyShares.mul(strategyShareValue).div(fp(1))
     expect(accountValue).to.be.at.least(bn(expectedAccountValue).sub(50))
@@ -202,51 +203,50 @@ describe('CompoundStrategy - DAI', function () {
   })
 
   it('handles DAI airdrops', async () => {
-    const previousValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const previousValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
 
     // Airdrop 1000 DAI and invest
     dai.connect(whale).transfer(strategy.address, fp(1000))
-    await strategy.invest(dai.address)
+    await strategy.invest(DAI)
 
-    const currentValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const currentValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
     expect(currentValue).to.be.gt(previousValue)
   })
 
   it('handles USDC airdrops', async () => {
     // Airdrop 1000 USDC
-    const previousValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const previousValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
 
     // Airdrop 1000 DAI and invest
     usdc.connect(whale).transfer(strategy.address, fp(1000).div(bn(1e12)))
-    await strategy.invest(usdc.address)
+    await strategy.invest(USDC)
 
-    const currentValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const currentValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
     expect(currentValue).to.be.gt(previousValue)
   })
 
   it('exits with a 100%', async () => {
-    const previousBalance = await vault.getAccountBalance(whale.address, dai.address)
+    const previousBalance = await vault.getAccountBalance(WHALE, DAI)
 
     const exitRatio = fp(1)
-    await vault.connect(whale).exit(whale.address, strategy.address, exitRatio, false, '0x')
+    await vault.connect(whale).exit(WHALE, strategy.address, exitRatio, false, '0x')
 
     // The user should at least have some gains
-    const currentBalance = await vault.getAccountBalance(whale.address, dai.address)
-    const minExpectedBalance = JOIN_AMOUNT.mul(exitRatio).div(fp(1))
-    expect(currentBalance.sub(previousBalance)).to.be.gt(minExpectedBalance)
+    const currentBalance = await vault.getAccountBalance(WHALE, DAI)
+    expect(currentBalance).to.be.gt(previousBalance)
 
     // There should not be any remaining tokens in the strategy
     const strategyDaiBalance = await dai.balanceOf(strategy.address)
     expect(strategyDaiBalance).to.be.equal(0)
 
-    const currentInvestment = await vault.getAccountInvestment(whale.address, strategy.address)
+    const currentInvestment = await vault.getAccountInvestment(WHALE, strategy.address)
     expectWithError(currentInvestment.invested, bn(0))
     expectWithError(currentInvestment.shares, bn(0))
 
     const strategyShares = await vault.getStrategyShares(strategy.address)
     expectWithError(strategyShares, bn(0))
 
-    const accountValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    const accountValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
     expectWithError(accountValue, bn(0))
   })
 })
