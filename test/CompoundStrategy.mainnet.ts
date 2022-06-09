@@ -206,7 +206,7 @@ describe('CompoundStrategy - DAI', function () {
     const previousValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
 
     // Airdrop 1000 DAI and invest
-    dai.connect(whale).transfer(strategy.address, fp(1000))
+    await dai.connect(whale).transfer(strategy.address, fp(1000))
     await strategy.invest(DAI)
 
     const currentValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
@@ -218,7 +218,7 @@ describe('CompoundStrategy - DAI', function () {
     const previousValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
 
     // Airdrop 1000 DAI and invest
-    usdc.connect(whale).transfer(strategy.address, fp(1000).div(bn(1e12)))
+    await usdc.connect(whale).transfer(strategy.address, fp(1000).div(bn(1e12)))
     await strategy.invest(USDC)
 
     const currentValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
