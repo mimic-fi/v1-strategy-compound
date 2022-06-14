@@ -53,7 +53,7 @@ contract CompoundStrategy is IStrategy, Ownable {
     // Mimic Vault reference
     IVault internal immutable _vault;
 
-    // Compound token associated to the strategy token
+    // Compound token
     IERC20 internal immutable _comp;
 
     // Token that will be used as the strategy entry point
@@ -212,7 +212,7 @@ contract CompoundStrategy is IStrategy, Ownable {
     /**
      * @dev Strategy onExit hook
      * @param ratio Ratio of the invested position to exit
-     * @param emergency Tells if the exit call is an emergency or not, if it is no investments are made, simply exit
+     * @param emergency Tells if the exit call is an emergency or not, if it is then no investments are made, simply exit
      */
     function onExit(uint256 ratio, bool emergency, bytes memory)
         external
