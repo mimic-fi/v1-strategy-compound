@@ -28,30 +28,65 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import './compound/ICToken.sol';
 import './compound/Comptroller.sol';
 
+/**
+ * @title CompoundStrategy
+ * @dev This strategy invests tokens in Compound in exchange for a cToken to accrue value and earn COMP over time
+ */
 contract CompoundStrategy is IStrategy, Ownable {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
 
-    uint256 private constant MAX_SLIPPAGE = 10e16; // 10%
-    uint256 private constant SWAP_THRESHOLD = 10; // 10 wei
+    // Max value in order to cap the slippage config: 10%
+    uint256 private constant MAX_SLIPPAGE = 10e16;
+
+    // Min value in order to limit the amount of token rewards to be swapped in the strategy: 10 wei
+    uint256 private constant SWAP_THRESHOLD = 10;
+
+    // Precision value used by Mimic's Vault to avoid rounding errors
     uint256 private constant VAULT_EXIT_RATIO_PRECISION = 1e18;
 
+    /**
+     * @dev Emitted every time a new slippage value is set
+     */
     event SetSlippage(uint256 slippage);
 
+    // Mimic Vault reference
     IVault internal immutable _vault;
+
+    // Compound token
     IERC20 internal immutable _comp;
+
+    // Token that will be used as the strategy entry point
     IERC20 internal immutable _token;
+
+    // cToken associated to the strategy token
     ICToken internal immutable _cToken;
+
+    // Address of the Compound comptroller
     Comptroller internal immutable _comptroller;
 
+    // Strategy metadata URI
     string internal _metadataURI;
+
+    // Slippage to be used to swap and re-invest rewards
     uint256 internal _slippage;
 
+    /**
+     * @dev Used to mark functions that can only be called by the protocol vault
+     */
     modifier onlyVault() {
         require(address(_vault) == msg.sender, 'CALLER_IS_NOT_VAULT');
         _;
     }
 
+    /**
+     * @dev Initializes the Compound strategy contract
+     * @param vault Protocol vault reference
+     * @param token Token to be used as the strategy entry point
+     * @param cToken Compound token associated to the strategy token
+     * @param slippage Slippage value to be used in order to swap rewards
+     * @param metadataURI Metadata URI associated to the strategy
+     */
     constructor(IVault vault, IERC20 token, ICToken cToken, uint256 slippage, string memory metadataURI) {
         _token = token;
         _cToken = cToken;
@@ -134,13 +169,15 @@ contract CompoundStrategy is IStrategy, Ownable {
 
     /**
      * @dev Setter to update the slippage
+     * @param slippage New slippage to be set
      */
-    function setSlippage(uint256 newSlippage) external onlyOwner {
-        _setSlippage(newSlippage);
+    function setSlippage(uint256 slippage) external onlyOwner {
+        _setSlippage(slippage);
     }
 
     /**
      * @dev Setter to override the existing metadata URI
+     * @param metadataURI New metadata to be set
      */
     function setMetadataURI(string memory metadataURI) external onlyOwner {
         _setMetadataURI(metadataURI);
@@ -148,6 +185,7 @@ contract CompoundStrategy is IStrategy, Ownable {
 
     /**
      * @dev Strategy onJoin hook
+     * @param amount Amount of strategy tokens to invest
      */
     function onJoin(uint256 amount, bytes memory)
         external
@@ -173,6 +211,8 @@ contract CompoundStrategy is IStrategy, Ownable {
 
     /**
      * @dev Strategy onExit hook
+     * @param ratio Ratio of the invested position to exit
+     * @param emergency Tells if the exit call is an emergency or not, if it is then no investments are made, simply exit
      */
     function onExit(uint256 ratio, bool emergency, bytes memory)
         external
@@ -218,6 +258,7 @@ contract CompoundStrategy is IStrategy, Ownable {
      * @dev Invest all the balance of a token in the strategy into Compound.
      * If the requested token is not the same token as the strategy token it will be swapped before joining the pool.
      * This method is marked as public so it can be used externally by anyone in case of an airdrop.
+     * @param token Token to invest all its balance, it cannot be the cToken of the strategy
      */
     function invest(IERC20 token) public {
         require(token != _cToken, 'COMPOUND_INTERNAL_TOKEN');
@@ -245,6 +286,9 @@ contract CompoundStrategy is IStrategy, Ownable {
 
     /**
      * @dev Internal function to swap a pair of tokens using the Vault's swap connector
+     * @param tokenIn Token to be sent
+     * @param tokenOut Token to received
+     * @param amountIn Amount of tokenIn being swapped
      */
     function _swap(IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn) internal {
         if (amountIn == 0) return;
@@ -278,18 +322,20 @@ contract CompoundStrategy is IStrategy, Ownable {
 
     /**
      * @dev Internal function to set the metadata URI
+     * @param metadataURI New metadata to be set
      */
-    function _setMetadataURI(string memory newMetadataURI) private {
-        _metadataURI = newMetadataURI;
-        emit SetMetadataURI(newMetadataURI);
+    function _setMetadataURI(string memory metadataURI) private {
+        _metadataURI = metadataURI;
+        emit SetMetadataURI(metadataURI);
     }
 
     /**
      * @dev Internal function to set the slippage
+     * @param slippage New slippage to be set
      */
-    function _setSlippage(uint256 newSlippage) private {
-        require(newSlippage <= MAX_SLIPPAGE, 'SLIPPAGE_ABOVE_MAX');
-        _slippage = newSlippage;
-        emit SetSlippage(newSlippage);
+    function _setSlippage(uint256 slippage) private {
+        require(slippage <= MAX_SLIPPAGE, 'SLIPPAGE_ABOVE_MAX');
+        _slippage = slippage;
+        emit SetSlippage(slippage);
     }
 }

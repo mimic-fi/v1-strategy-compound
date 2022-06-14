@@ -16,15 +16,33 @@ pragma solidity ^0.8.0;
 
 import './CompoundStrategy.sol';
 
+/**
+ * @title CompoundStrategyFactory
+ * @dev Factory contract to create CompoundStrategy contracts
+ */
 contract CompoundStrategyFactory {
+    /**
+     * @dev Emitted every time a new CompoundStrategy is created
+     */
     event StrategyCreated(CompoundStrategy indexed strategy);
 
     IVault public vault;
 
+    /**
+     * @dev Initializes the factory contract
+     * @param _vault Protocol vault reference
+     */
     constructor(IVault _vault) {
         vault = _vault;
     }
 
+    /**
+     * @dev Creates a new CompoundStrategy
+     * @param token Token to be used as the strategy entry point
+     * @param cToken Compound token associated to the strategy token
+     * @param slippage Slippage value to be used in order to swap rewards
+     * @param metadata Metadata URI associated to the strategy
+     */
     function create(IERC20 token, ICToken cToken, uint256 slippage, string memory metadata)
         external
         returns (CompoundStrategy strategy)
