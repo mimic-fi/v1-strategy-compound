@@ -26,7 +26,7 @@ contract CompoundStrategyFactory {
      */
     event StrategyCreated(CompoundStrategy indexed strategy);
 
-    IVault public vault;
+    IVault public immutable vault;
 
     /**
      * @dev Initializes the factory contract
